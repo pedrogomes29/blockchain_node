@@ -1,7 +1,8 @@
 package utils
 
-import "encoding/binary"
-
+import (
+	"encoding/binary"
+)
 
 func Uint32ToHex(num uint32) []byte {
 	hex := make([]byte, 4)

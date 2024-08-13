@@ -2,7 +2,7 @@ package transactions
 
 type TXInput struct {
 	Txid      []byte
-	Vout      int
+	OutIndex  int
 	Signature []byte
 	PubKey    []byte
 }

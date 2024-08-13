@@ -23,13 +23,13 @@ type Block struct {
 }
 
 const MaxNonce = math.MaxUint32
-const targetBits = 8 //how many bits must be 0 in the header hash
+const targetBits = 16 //how many bits must be 0 in the header hash
 
 var Target *big.Int
 
 func init() {
-	target := big.NewInt(1)
-	target.Lsh(target, uint(256-targetBits))
+	Target = big.NewInt(1)
+	Target.Lsh(Target, uint(256-targetBits))
 }
 
 func NewBlock(transactions []*transactions.Transaction, prevBlockHash []byte) *Block {
@@ -45,7 +45,11 @@ func NewBlock(transactions []*transactions.Transaction, prevBlockHash []byte) *B
 	return block
 }
 
-func (b *BlockHeader) getBlockHeaderHash() [32]byte {
+func NewGenesisBlock(coinbase *transactions.Transaction) *Block {
+	return NewBlock([]*transactions.Transaction{coinbase}, []byte{})
+}
+
+func (b *BlockHeader) GetBlockHeaderHash() [32]byte {
 	data := bytes.Join(
 		[][]byte{
 			b.PrevBlockHeaderHash,
@@ -57,7 +61,7 @@ func (b *BlockHeader) getBlockHeaderHash() [32]byte {
 	return sha256.Sum256(data)
 }
 
-func (bh *BlockHeader) generateNoncePOW() {
+func (bh *BlockHeader) GenerateNoncePOW() {
 	for possibleNonce := 0; possibleNonce < MaxNonce; possibleNonce++ {
 		bh.Nonce = uint32(possibleNonce)
 		if bh.ValidateNonce() {
@@ -69,7 +73,7 @@ func (bh *BlockHeader) generateNoncePOW() {
 func (b *BlockHeader) ValidateNonce() bool {
 	var hashInt big.Int
 
-	hash := b.getBlockHeaderHash()
+	hash := b.GetBlockHeaderHash()
 	hashInt.SetBytes(hash[:])
 
 	isValid := hashInt.Cmp(Target) == -1
@@ -77,7 +81,7 @@ func (b *BlockHeader) ValidateNonce() bool {
 	return isValid
 }
 
-func (b *Block) generateMerkleRootHash() {
+func (b *Block) GenerateMerkleRootHash() {
 	var transactions [][]byte
 
 	for _, tx := range b.Transactions {
