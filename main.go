@@ -3,15 +3,13 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
+
+	"github.com/pedrogomes29/blockchain/blockchain"
 )
 
-func main() {
-	bc := NewBlockchain()
-	genesisBlock := bc.blocks[0]
-	genesisBlockHeader := genesisBlock.Header
-	genesisBlockNonce := genesisBlockHeader.Nonce
-	genesisBlockHash := genesisBlockHeader.GetBlockHeaderHash()
+const genesisAddress = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
 
-	fmt.Println(genesisBlockNonce)
-	fmt.Println(hex.EncodeToString(genesisBlockHash[:]))
+func main() {
+	bc := blockchain.NewBlockchain(genesisAddress)
+	fmt.Println(hex.EncodeToString(bc.LastBlockHash))
 }

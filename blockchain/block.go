@@ -1,8 +1,10 @@
-package main
+package blockchain
 
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/gob"
+	"log"
 	"math"
 	"math/big"
 
@@ -46,7 +48,10 @@ func NewBlock(transactions []*transactions.Transaction, prevBlockHash []byte) *B
 }
 
 func NewGenesisBlock(coinbase *transactions.Transaction) *Block {
-	return NewBlock([]*transactions.Transaction{coinbase}, []byte{})
+	genesisblock := NewBlock([]*transactions.Transaction{coinbase}, []byte{})
+	genesisblock.GenerateMerkleRootHash()
+	genesisblock.Header.GenerateNoncePOW()
+	return genesisblock
 }
 
 func (b *BlockHeader) GetBlockHeaderHash() [32]byte {
@@ -91,4 +96,29 @@ func (b *Block) GenerateMerkleRootHash() {
 	mTree := merkle_tree.NewMerkleTree(transactions)
 
 	b.Header.MerkleRootHash = mTree.RootNode.Data
+}
+
+
+func (b *Block) Serialize() []byte {
+	var result bytes.Buffer
+	encoder := gob.NewEncoder(&result)
+
+	err := encoder.Encode(b)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return result.Bytes()
+}
+
+func DeserializeBlock(d []byte) *Block {
+	var block Block
+
+	decoder := gob.NewDecoder(bytes.NewReader(d))
+	err := decoder.Decode(&block)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return &block
 }

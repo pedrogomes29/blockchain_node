@@ -1,0 +1,29 @@
+=============== Aug 13, 2024 (WEST) ===============
+12:48:42.116018 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+=============== Aug 13, 2024 (WEST) ===============
+12:52:18.655289 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+=============== Aug 13, 2024 (WEST) ===============
+13:05:13.954967 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+13:05:13.967701 db@open opening
+13:05:13.969754 version@stat F·[] S·0B[] Sc·[]
+13:05:13.971631 db@janitor F·2 G·0
+13:05:13.971742 db@open done T·3.943805ms
+=============== Aug 13, 2024 (WEST) ===============
+13:05:16.838609 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+13:05:16.838894 version@stat F·[] S·0B[] Sc·[]
+13:05:16.838924 db@open opening
+13:05:16.838991 journal@recovery F·1
+13:05:16.839383 journal@recovery recovering @1
+13:05:16.849749 memdb@flush created L0@2 N·2 S·611B "\x00\x00\xaa..K\xa1\a,v1":"l,v2"
+13:05:16.850159 version@stat F·[1] S·611B[611B] Sc·[0.25]
+13:05:16.853902 db@janitor F·3 G·0
+13:05:16.853939 db@open done T·14.994366ms
+=============== Aug 13, 2024 (WEST) ===============
+13:06:44.209735 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+13:06:44.210007 version@stat F·[1] S·611B[611B] Sc·[0.25]
+13:06:44.210036 db@open opening
+13:06:44.210110 journal@recovery F·1
+13:06:44.210597 journal@recovery recovering @3
+13:06:44.211331 version@stat F·[1] S·611B[611B] Sc·[0.25]
+13:06:44.252102 db@janitor F·3 G·0
+13:06:44.252224 db@open done T·42.141588ms
