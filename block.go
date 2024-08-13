@@ -65,7 +65,7 @@ func (bh *BlockHeader) GenerateNoncePOW() {
 	for possibleNonce := 0; possibleNonce < MaxNonce; possibleNonce++ {
 		bh.Nonce = uint32(possibleNonce)
 		if bh.ValidateNonce() {
-			break;
+			break
 		}
 	}
 }
