@@ -17,9 +17,8 @@ const subsidy = 10 //TODO calculate dynamically given number of blocks (deflatio
 
 
 func NewCoinbaseTX(receiverAddress string) *Transaction {
-	txin := TXInput{[]byte{}, -1, nil, []byte{}}
 	txout, _ := NewTXOutput(subsidy, receiverAddress) //TODO: Handle invalid bitcoin address error
-	tx := Transaction{nil, []TXInput{txin}, []TXOutput{*txout}}
+	tx := Transaction{nil, []TXInput{}, []TXOutput{*txout}}
 	tx.ID = tx.Hash()
 	return &tx
 }

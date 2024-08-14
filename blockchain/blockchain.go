@@ -29,10 +29,18 @@ func (bc *Blockchain) AddBlock(transactions []*transactions.Transaction) {
 
 func NewBlockchain(genesisAddress string) *Blockchain {
 	var LastBlockHash []byte
+	var bc *Blockchain
+
 	blocksDB, err := leveldb.OpenFile("blocks", nil)
 	if err != nil {
 		log.Panic(err)
 	}
+
+	chainstateDB, err := leveldb.OpenFile("chainstate", nil)
+	if err != nil {
+		log.Panic(err)
+	}
+
 	_, err = blocksDB.Get([]byte("l"), nil)
 
 	if err == errors.ErrNotFound { //if the l key (last block hash) is not found, we are creating the db for the first time => create genesis block
@@ -50,14 +58,20 @@ func NewBlockchain(genesisAddress string) *Blockchain {
 		if err != nil {
 			log.Panic(err)
 		}
-
-	} else { //else, simply get the last block hash from the db
+		bc = &Blockchain{LastBlockHash,blocksDB,chainstateDB}
+		bc.ReindexUTXOs()
+	}else if err!=nil{
+		log.Panic(err)
+	}else{ //else, simply get the last block hash from the db
 		fmt.Println("Blockchain found. Retrieving...")
 		LastBlockHash, err = blocksDB.Get([]byte("l"),nil)
+
 		if err != nil {
 			log.Panic(err)
 		}
+
+		bc = &Blockchain{LastBlockHash,blocksDB,chainstateDB}
 	}
 
-	return &Blockchain{LastBlockHash,blocksDB,nil}
+	return bc
 }
