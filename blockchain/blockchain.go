@@ -11,21 +11,29 @@ import (
 
 type Blockchain struct {
 	LastBlockHash []byte
-	db  *leveldb.DB
+	blocksDB  *leveldb.DB
+	chainstateDB  *leveldb.DB
 }
 
 func (bc *Blockchain) AddBlock(transactions []*transactions.Transaction) {
 	newBlock := NewBlock(transactions, bc.LastBlockHash)
 	newBlock.GenerateMerkleRootHash()
+	newBlock.Header.GenerateNoncePOW()
+	blockHash := newBlock.Header.GetBlockHeaderHash()
+	bc.LastBlockHash = blockHash[:]
+	err := bc.blocksDB.Put(bc.LastBlockHash, newBlock.Serialize(), nil)
+	if err != nil {
+		log.Panic(err)
+	}
 }
 
 func NewBlockchain(genesisAddress string) *Blockchain {
 	var LastBlockHash []byte
-	db, err := leveldb.OpenFile("blocks", nil)
+	blocksDB, err := leveldb.OpenFile("blocks", nil)
 	if err != nil {
 		log.Panic(err)
 	}
-	_, err = db.Get([]byte("l"), nil)
+	_, err = blocksDB.Get([]byte("l"), nil)
 
 	if err == errors.ErrNotFound { //if the l key (last block hash) is not found, we are creating the db for the first time => create genesis block
 		fmt.Println("Blockchain not found. Generating genesis block...")
@@ -34,22 +42,22 @@ func NewBlockchain(genesisAddress string) *Blockchain {
 		genesisHash := genesis.Header.GetBlockHeaderHash()
 		LastBlockHash = genesisHash[:]
 
-		err = db.Put(LastBlockHash, genesis.Serialize(), nil)
+		err = blocksDB.Put(LastBlockHash, genesis.Serialize(), nil)
 		if err != nil {
 			log.Panic(err)
 		}
-		err = db.Put([]byte("l"), LastBlockHash, nil)
+		err = blocksDB.Put([]byte("l"), LastBlockHash, nil)
 		if err != nil {
 			log.Panic(err)
 		}
 
 	} else { //else, simply get the last block hash from the db
 		fmt.Println("Blockchain found. Retrieving...")
-		LastBlockHash, err = db.Get([]byte("l"),nil)
+		LastBlockHash, err = blocksDB.Get([]byte("l"),nil)
 		if err != nil {
 			log.Panic(err)
 		}
 	}
 
-	return &Blockchain{LastBlockHash,db}
+	return &Blockchain{LastBlockHash,blocksDB,nil}
 }
