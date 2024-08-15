@@ -4,25 +4,32 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/gob"
+	"encoding/hex"
+	"errors"
 	"log"
+
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type Transaction struct {
 	ID   []byte
 	Vin  []TXInput
 	Vout []TXOutput
+	IsCoinbase bool
 }
 
 const subsidy = 10 //TODO calculate dynamically given number of blocks (deflationary)
 
 
 func NewCoinbaseTX(receiverAddress string) *Transaction {
-	txout, _ := NewTXOutput(subsidy, receiverAddress) //TODO: Handle invalid bitcoin address error
-	tx := Transaction{nil, []TXInput{}, []TXOutput{*txout}}
+	txout, err := NewTXOutput(subsidy, receiverAddress) //TODO: Handle invalid bitcoin address error
+	if err!=nil{
+		log.Panic(err)
+	}
+	tx := Transaction{nil, []TXInput{}, []TXOutput{*txout}, true}
 	tx.ID = tx.Hash()
 	return &tx
 }
-
 
 func (tx Transaction) Serialize() []byte {
 	var encoded bytes.Buffer
@@ -38,9 +45,73 @@ func (tx Transaction) Serialize() []byte {
 
 
 func (tx Transaction) Hash() []byte {
-	var hash [32]byte
-
-	hash = sha256.Sum256(tx.Serialize())
+	hash := sha256.Sum256(tx.Serialize())
 
 	return hash[:]
+}
+
+func (tx Transaction) IndexUTXOs(chainstateDB *leveldb.DB) error{
+	if tx.IsCoinbase{
+		txUTXOs := make(UTXOs)
+		for i, txoutput := range tx.Vout {
+			txUTXOs[i] = txoutput
+		}
+		err := chainstateDB.Put(tx.ID, txUTXOs.Serialize(), nil)
+		if err != nil {
+			return err;
+		}
+		return nil;
+	}
+
+	// TODO: Verify signature + pubkey of transaction inputs against pubkey hash of UTXOs
+	txHash := tx.Hash()
+
+	txInputTotal := 0
+
+	updatedUTXOs := make(map[string]UTXOs) //stores updated UTXOs temporarily to only update after verifying transaction is valid
+
+	for _, txInput := range tx.Vin{
+		inputTxHash := txInput.Txid
+		inputTxUTXObytes, err := chainstateDB.Get(inputTxHash, nil)
+		if err != nil {
+			return err
+		}
+		inputTxUTXOs := DeserializeUTXOs(inputTxUTXObytes)
+		//TODO: Verify user can 
+		prevUTXO, ok := inputTxUTXOs[txInput.OutIndex]
+		if !ok{
+			return errors.New("invalid transaction, spending from already used transaction output")
+		}
+
+		txInputTotal += prevUTXO.Value
+
+
+		delete(inputTxUTXOs,txInput.OutIndex)
+		updatedUTXOs[hex.EncodeToString(inputTxHash)] = inputTxUTXOs
+	}
+	
+	txUTXOs := make(UTXOs)
+	txOutputTotal := 0
+	for i, txoutput := range tx.Vout {
+		txUTXOs[i] = txoutput
+		txOutputTotal += txoutput.Value
+	}
+
+	if txInputTotal < txOutputTotal {
+		return errors.New("invalid transaction, total output value is larger than total input value")
+	}
+	updatedUTXOs[hex.EncodeToString(txHash)] = txUTXOs
+
+	for updatedTXHashString, utxos := range updatedUTXOs{
+		updatedTXHash, err := hex.DecodeString(updatedTXHashString)
+		if err != nil {
+			return err;
+		}
+		err = chainstateDB.Put(updatedTXHash, utxos.Serialize(), nil)
+		if err != nil {
+			return err;
+		}
+	}
+
+	return nil;
 }

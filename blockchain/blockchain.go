@@ -11,19 +11,23 @@ import (
 
 type Blockchain struct {
 	LastBlockHash []byte
-	blocksDB  *leveldb.DB
-	chainstateDB  *leveldb.DB
+	BlocksDB  *leveldb.DB
+	ChainstateDB  *leveldb.DB
 }
 
-func (bc *Blockchain) AddBlock(transactions []*transactions.Transaction) {
-	newBlock := NewBlock(transactions, bc.LastBlockHash)
-	newBlock.GenerateMerkleRootHash()
-	newBlock.Header.GenerateNoncePOW()
-	blockHash := newBlock.Header.GetBlockHeaderHash()
+func (bc *Blockchain) AddBlock(newBlock *Block) {
+	blockHash := newBlock.GetBlockHeaderHash()
 	bc.LastBlockHash = blockHash[:]
-	err := bc.blocksDB.Put(bc.LastBlockHash, newBlock.Serialize(), nil)
+	err := bc.BlocksDB.Put(bc.LastBlockHash, newBlock.Serialize(), nil)
 	if err != nil {
 		log.Panic(err)
+	}
+
+	for _,tx := range newBlock.Transactions{
+		err := tx.IndexUTXOs(bc.ChainstateDB)
+		if err != nil {
+			log.Panic(err)
+		}
 	}
 }
 
@@ -47,7 +51,7 @@ func NewBlockchain(genesisAddress string) *Blockchain {
 		fmt.Println("Blockchain not found. Generating genesis block...")
 		cbtx := transactions.NewCoinbaseTX(genesisAddress)
 		genesis := NewGenesisBlock(cbtx)
-		genesisHash := genesis.Header.GetBlockHeaderHash()
+		genesisHash := genesis.GetBlockHeaderHash()
 		LastBlockHash = genesisHash[:]
 
 		err = blocksDB.Put(LastBlockHash, genesis.Serialize(), nil)

@@ -7,6 +7,7 @@ import (
 	"log"
 	"math"
 	"math/big"
+	"time"
 
 	"github.com/pedrogomes29/blockchain/merkle_tree"
 	"github.com/pedrogomes29/blockchain/transactions"
@@ -25,7 +26,7 @@ type Block struct {
 }
 
 const MaxNonce = math.MaxUint32
-const targetBits = 16 //how many bits must be 0 in the header hash
+const targetBits = 8 //how many bits must be 0 in the header hash
 
 var Target *big.Int
 
@@ -49,33 +50,37 @@ func NewBlock(transactions []*transactions.Transaction, prevBlockHash []byte) *B
 
 func NewGenesisBlock(coinbase *transactions.Transaction) *Block {
 	genesisblock := NewBlock([]*transactions.Transaction{coinbase}, []byte{})
-	genesisblock.GenerateMerkleRootHash()
-	genesisblock.Header.GenerateNoncePOW()
+	done := make(chan struct{})
+	go genesisblock.POW(done)
+	<-done
 	return genesisblock
 }
 
-func (b *BlockHeader) GetBlockHeaderHash() [32]byte {
+func (b *Block) GetBlockHeaderHash() [32]byte {
+	b.GenerateMerkleRootHash()
 	data := bytes.Join(
 		[][]byte{
-			b.PrevBlockHeaderHash,
-			b.MerkleRootHash,
+			b.Header.PrevBlockHeaderHash,
+			b.Header.MerkleRootHash,
 		},
-		utils.Uint32ToHex(b.Nonce),
+		utils.Uint32ToHex(b.Header.Nonce),
 	)
 
 	return sha256.Sum256(data)
 }
 
-func (bh *BlockHeader) GenerateNoncePOW() {
+func (b *Block) POW(done chan struct{}) {
 	for possibleNonce := 0; possibleNonce < MaxNonce; possibleNonce++ {
-		bh.Nonce = uint32(possibleNonce)
-		if bh.ValidateNonce() {
+		b.Header.Nonce = uint32(possibleNonce)
+		if b.ValidateNonce() {
 			break
 		}
+		time.Sleep(time.Microsecond*50)
 	}
+	done <- struct{}{}
 }
 
-func (b *BlockHeader) ValidateNonce() bool {
+func (b *Block) ValidateNonce() bool {
 	var hashInt big.Int
 
 	hash := b.GetBlockHeaderHash()
