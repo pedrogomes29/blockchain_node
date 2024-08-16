@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log"
 
+	"github.com/pedrogomes29/blockchain/utils"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
@@ -26,7 +27,8 @@ func NewCoinbaseTX(receiverAddress string) *Transaction {
 	if err!=nil{
 		log.Panic(err)
 	}
-	tx := Transaction{nil, []TXInput{}, []TXOutput{*txout}, true}
+	txin := TXInput{[]byte{}, -1, nil, []byte(utils.GenerateRandomString(20))}
+	tx := Transaction{nil, []TXInput{txin}, []TXOutput{*txout}, true}
 	tx.ID = tx.Hash()
 	return &tx
 }
@@ -64,7 +66,6 @@ func (tx Transaction) IndexUTXOs(chainstateDB *leveldb.DB) error{
 	}
 
 	// TODO: Verify signature + pubkey of transaction inputs against pubkey hash of UTXOs
-	txHash := tx.Hash()
 
 	txInputTotal := 0
 
@@ -100,7 +101,7 @@ func (tx Transaction) IndexUTXOs(chainstateDB *leveldb.DB) error{
 	if txInputTotal < txOutputTotal {
 		return errors.New("invalid transaction, total output value is larger than total input value")
 	}
-	updatedUTXOs[hex.EncodeToString(txHash)] = txUTXOs
+	updatedUTXOs[hex.EncodeToString(tx.ID)] = txUTXOs
 
 	for updatedTXHashString, utxos := range updatedUTXOs{
 		updatedTXHash, err := hex.DecodeString(updatedTXHashString)
@@ -114,4 +115,30 @@ func (tx Transaction) IndexUTXOs(chainstateDB *leveldb.DB) error{
 	}
 
 	return nil;
+}
+
+func (tx Transaction) TrimmedCopy() Transaction{
+	var inputs []TXInput
+	var outputs []TXOutput
+
+	for _,txIn := range tx.Vin{
+		inputs = append(inputs, TXInput{
+			txIn.Txid,
+			txIn.OutIndex,
+			nil,
+			nil,
+		})
+	}
+	for _,txOut := range tx.Vout{
+		outputs = append(outputs, TXOutput{ txOut.Value, txOut.PubKeyHash})
+	}
+
+	txTrimmed := Transaction{
+		tx.ID,
+		inputs,
+		outputs,
+		tx.IsCoinbase,
+	}
+
+	return txTrimmed
 }

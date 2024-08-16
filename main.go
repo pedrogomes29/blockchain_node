@@ -23,7 +23,9 @@ func main() {
 	minerWallet.SetServer(server)
 	wallet1.SetServer(server)
 	wallet2.SetServer(server)
-
+	fmt.Printf("Initial balance of %s: %d\n", wallet1.Address(), wallet1.GetBalance())
+	fmt.Printf("Initial balance of %s: %d\n", wallet2.Address(), wallet2.GetBalance())
+	fmt.Printf("Miner balance: %d\n", minerWallet.GetBalance())
 
 	time.Sleep(3*time.Second)
 
@@ -34,6 +36,7 @@ func main() {
 	// Initial balances
 	fmt.Printf("Initial balance of %s: %d\n", wallet1.Address(), wallet1.GetBalance())
 	fmt.Printf("Initial balance of %s: %d\n", wallet2.Address(), wallet2.GetBalance())
+	fmt.Printf("Miner balance: %d\n", minerWallet.GetBalance())
 
 	// Perform some transactions
 	fmt.Println("Performing transactions...")
@@ -46,6 +49,8 @@ func main() {
 	// Check balances after the first transaction
 	fmt.Printf("Balance of %s after sending 10 coins: %d\n", wallet1.Address(), wallet1.GetBalance())
 	fmt.Printf("Balance of %s after receiving 10 coins: %d\n", wallet2.Address(), wallet2.GetBalance())
+	fmt.Printf("Miner balance: %d\n", minerWallet.GetBalance())
+
 
 	// Send 5 coins back from wallet2 to wallet1
 	wallet2.SendToAddress(wallet1.Address(), 5)
@@ -54,6 +59,8 @@ func main() {
 	// Check balances after the second transaction
 	fmt.Printf("Balance of %s after receiving 5 coins: %d\n", wallet1.Address(), wallet1.GetBalance())
 	fmt.Printf("Balance of %s after sending 5 coins: %d\n", wallet2.Address(), wallet2.GetBalance())
+	fmt.Printf("Miner balance: %d\n", minerWallet.GetBalance())
+
 
 	// Send 2 coins from wallet1 to wallet2
 	wallet1.SendToAddress(wallet2.Address(), 2)
@@ -62,5 +69,6 @@ func main() {
 	// Final balances
 	fmt.Printf("Balance of %s after sending 2 coins: %d\n", wallet1.Address(), wallet1.GetBalance())
 	fmt.Printf("Balance of %s after receiving 3 coins: %d\n", wallet2.Address(), wallet2.GetBalance())
+	fmt.Printf("Miner balance: %d\n", minerWallet.GetBalance())
 	
 }
