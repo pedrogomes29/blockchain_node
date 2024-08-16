@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/pedrogomes29/blockchain/blockchain"
@@ -23,10 +24,15 @@ func NewServer(minerAddress string) *Server{
 }
 
 func (server *Server) AddTransaction(tx *transactions.Transaction){
+	if(!tx.VerifyInputSignatures(server.Bc.ChainstateDB)){
+		fmt.Println("Transaction inputs have at least one invalid signature")
+		return;
+	}
+
 	server.mu.Lock()
 	defer server.mu.Unlock()
 
-	if server.blockInProgress != nil {
+	if server.blockInProgress != nil{
 		server.blockInProgress.Transactions = append(server.blockInProgress.Transactions, tx)
 	}
 }

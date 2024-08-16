@@ -4,14 +4,13 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"log"
 
 	"github.com/btcsuite/btcd/btcutil/base58"
 	"github.com/pedrogomes29/blockchain/server"
 	"github.com/pedrogomes29/blockchain/transactions"
-	"golang.org/x/crypto/ripemd160"
+	"github.com/pedrogomes29/blockchain/utils"
 )
 
 type Wallet struct{
@@ -59,6 +58,7 @@ func (wallet *Wallet) SetServer(server *server.Server){
 func (wallet *Wallet) generateTxToAddress(toAddress string, amount int) *transactions.Transaction{
 	var inputs []transactions.TXInput
 	var outputs []transactions.TXOutput
+	inputIdxsToSign := make(map[int]struct{})
 
 	publicKeyHash := wallet.PublicKeyHash()
 	utxosTotal, spendableUTXOs, err := wallet.server.Bc.FindSpendableUTXOs(publicKeyHash,amount)
@@ -80,10 +80,10 @@ func (wallet *Wallet) generateTxToAddress(toAddress string, amount int) *transac
 				Txid: txHash,
 				OutIndex: out,
 				Signature: nil,
-				PubKey:wallet.PublicKey(),
+				PubKey: wallet.PublicKey(),
 			}
-			//TODO: sign transaction
 			inputs = append(inputs, input)
+			inputIdxsToSign[len(inputs)-1] = struct{}{}
 		}
 	}
 	transactionToAddress, err := transactions.NewTXOutput(amount,toAddress)
@@ -108,6 +108,8 @@ func (wallet *Wallet) generateTxToAddress(toAddress string, amount int) *transac
 	}
 	transaction.ID = transaction.Hash()
 
+	wallet.SignTransactionInputs(transaction,inputIdxsToSign)
+
 	return transaction
 }
 
@@ -126,19 +128,22 @@ func (wallet *Wallet) GetBalance() int{
 }
 
 func (wallet *Wallet) PublicKeyHash()[]byte{
-	publicSHA256 := sha256.Sum256(wallet.PublicKey())
-
-	RIPEMD160Hasher := ripemd160.New()
-	_, err := RIPEMD160Hasher.Write(publicSHA256[:])
-	if err != nil {
-		log.Panic(err)
-	}
-	publicRIPEMD160 := RIPEMD160Hasher.Sum(nil)
-
-	return publicRIPEMD160
+	return utils.HashPublicKey(wallet.PublicKey())
 }
 
 func (wallet *Wallet) Address() string{
 	pubKeyHash := wallet.PublicKeyHash()
 	return base58.CheckEncode(pubKeyHash,0x00)
+}
+
+func (wallet *Wallet) SignTransactionInputs(tx *transactions.Transaction, inputIdxsToSign map[int]struct{}){
+	txCopy := tx.TrimmedCopy()
+	for inputIdxToSign := range inputIdxsToSign{
+		r, s, err := ecdsa.Sign(rand.Reader, &wallet.privateKey, txCopy.Hash())
+		if err!=nil{
+			log.Panic(err)
+		}
+		signature := append(r.Bytes(), s.Bytes()...)
+		tx.Vin[inputIdxToSign].Signature = signature
+	}
 }
