@@ -26,7 +26,7 @@ const subsidy = 10 //TODO calculate dynamically given number of blocks (deflatio
 
 
 func NewCoinbaseTX(receiverAddress string) *Transaction {
-	txout, err := NewTXOutput(subsidy, receiverAddress) //TODO: Handle invalid bitcoin address error
+	txout, err := NewTXOutput(subsidy, receiverAddress)
 	if err!=nil{
 		log.Panic(err)
 	}

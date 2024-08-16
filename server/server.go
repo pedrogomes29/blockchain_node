@@ -1,7 +1,9 @@
 package server
 
 import (
+	"encoding/hex"
 	"net/http"
+	"strconv"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -47,9 +49,9 @@ func (server *Server) AddTransactionHandler(c *gin.Context) {
 }
 
 func (server *Server) FindUTXOsHandler(c *gin.Context) {
-	var pubKeyHash []byte
-
-	if err := c.ShouldBindJSON(&pubKeyHash); err != nil {
+	pubKeyHashStr := c.Query("pubKeyHash")
+	pubKeyHash, err := hex.DecodeString(pubKeyHashStr)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid public key hash format"})
 		return
 	}
@@ -62,6 +64,35 @@ func (server *Server) FindUTXOsHandler(c *gin.Context) {
 
 	c.JSON(http.StatusOK, utxos)
 }
+
+func (server *Server) FindSpendableUTXOsHandler(c *gin.Context) {
+	pubKeyHashStr := c.Query("pubKeyHash")
+	amountStr := c.Query("amount")
+
+	pubKeyHash, err := hex.DecodeString(pubKeyHashStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid public key hash format"})
+		return
+	}
+
+	amount, err := strconv.Atoi(amountStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid amount format"})
+		return
+	}
+
+	utxosTotal, spendableUTXOs, err := server.bc.FindSpendableUTXOs(pubKeyHash, amount)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error finding spendable UTXOs"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"total":      utxosTotal,
+		"spendable":  spendableUTXOs,
+	})
+}
+
 
 func (server *Server) Run() {
 	done := make(chan struct{})
@@ -86,6 +117,7 @@ func (server *Server) Run() {
 	r := gin.Default()
 	r.POST("/transaction", server.AddTransactionHandler)
 	r.GET("/utxos", server.FindUTXOsHandler)
+	r.GET("/spendable_utxos", server.FindSpendableUTXOsHandler)
 
 	// Start the HTTP server
 	if err := r.Run(":8080"); err != nil {
