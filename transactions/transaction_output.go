@@ -4,7 +4,7 @@ import (
 	"bytes"
 
 	"github.com/btcsuite/btcd/btcutil/base58"
-	"github.com/pedrogomes29/blockchain/blockchain_errors"
+	"github.com/pedrogomes29/blockchain_node/blockchain_errors"
 )
 
 type TXOutput struct {

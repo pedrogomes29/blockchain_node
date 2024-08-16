@@ -5,8 +5,8 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pedrogomes29/blockchain/blockchain"
-	"github.com/pedrogomes29/blockchain/transactions"
+	"github.com/pedrogomes29/blockchain_node/blockchain"
+	"github.com/pedrogomes29/blockchain_node/transactions"
 )
 
 type Server struct {

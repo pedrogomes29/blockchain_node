@@ -10,9 +10,9 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/pedrogomes29/blockchain/merkle_tree"
-	"github.com/pedrogomes29/blockchain/transactions"
-	"github.com/pedrogomes29/blockchain/utils"
+	"github.com/pedrogomes29/blockchain_node/merkle_tree"
+	"github.com/pedrogomes29/blockchain_node/transactions"
+	"github.com/pedrogomes29/blockchain_node/utils"
 )
 
 type BlockHeader struct {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/pedrogomes29/blockchain/transactions"
+	"github.com/pedrogomes29/blockchain_node/transactions"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 )

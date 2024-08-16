@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"log"
 
-	"github.com/pedrogomes29/blockchain/transactions"
+	"github.com/pedrogomes29/blockchain_node/transactions"
 )
 
 

@@ -11,7 +11,7 @@ import (
 	"log"
 	"math/big"
 
-	"github.com/pedrogomes29/blockchain/utils"
+	"github.com/pedrogomes29/blockchain_node/utils"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
