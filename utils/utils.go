@@ -16,8 +16,7 @@ func Uint32ToHex(num uint32) []byte {
 	return hex
 }
 
-
-func GenerateRandomString(nrBytes int) string{
+func GenerateRandomString(nrBytes int) string {
 	randData := make([]byte, nrBytes)
 	_, err := rand.Read(randData)
 	if err != nil {
@@ -27,7 +26,7 @@ func GenerateRandomString(nrBytes int) string{
 	return fmt.Sprintf("%x", randData)
 }
 
-func HashPublicKey(publicKey []byte) []byte{
+func HashPublicKey(publicKey []byte) []byte {
 	publicSHA256 := sha256.Sum256(publicKey)
 
 	RIPEMD160Hasher := ripemd160.New()

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/gob"
-	"fmt"
 	"log"
 	"math"
 	"math/big"
@@ -74,10 +73,10 @@ func (b *Block) POW(done chan struct{}) {
 	for possibleNonce := 0; possibleNonce < MaxNonce; possibleNonce++ {
 		b.Header.Nonce = uint32(possibleNonce)
 		if b.ValidateNonce() {
-			fmt.Println("Mined block")
+			//fmt.Println("Mined block")
 			break
 		}
-		time.Sleep(time.Microsecond*50)
+		time.Sleep(time.Microsecond * 50)
 	}
 	done <- struct{}{}
 }
@@ -104,7 +103,6 @@ func (b *Block) GenerateMerkleRootHash() {
 
 	b.Header.MerkleRootHash = mTree.RootNode.Data
 }
-
 
 func (b *Block) Serialize() []byte {
 	var result bytes.Buffer

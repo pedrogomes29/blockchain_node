@@ -30,15 +30,15 @@ func TestNewMerkleNode(t *testing.T) {
 	level1Node2Hash := "08bd0d1426f87a78bfc2f0b13eccdf6f5b58dac6b37a7b9441c1a2fab415d76c"
 	RootNodeHash := "4e3e44e55926330ab6c31892f980f8bfd1a6e910ff1ebc3f778211377f35227e"
 
-	if level1Node1Hash != hex.EncodeToString(n5.Data){
+	if level1Node1Hash != hex.EncodeToString(n5.Data) {
 		t.Fatalf("Level 1 hash 1 is incorrect")
 
 	}
-	if level1Node2Hash != hex.EncodeToString(n6.Data){
+	if level1Node2Hash != hex.EncodeToString(n6.Data) {
 		t.Fatalf("Level 1 hash 1 is incorrect")
 
 	}
-	if RootNodeHash != hex.EncodeToString(n7.Data){
+	if RootNodeHash != hex.EncodeToString(n7.Data) {
 		t.Fatalf("Root hash is incorrect")
 	}
 }
@@ -65,7 +65,7 @@ func TestNewMerkleTree(t *testing.T) {
 	rootHash := fmt.Sprintf("%x", n7.Data)
 	mTree := NewMerkleTree(data)
 
-	if rootHash != fmt.Sprintf("%x", mTree.RootNode.Data){
+	if rootHash != fmt.Sprintf("%x", mTree.RootNode.Data) {
 		t.Fatalf("Root hash is incorrect")
 	}
 }

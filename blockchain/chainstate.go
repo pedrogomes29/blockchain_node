@@ -7,19 +7,17 @@ import (
 	"github.com/pedrogomes29/blockchain_node/transactions"
 )
 
-
-func (bc *Blockchain) getBlocks() []*Block{
-	blockBytes, err := bc.BlocksDB.Get(bc.LastBlockHash,nil)
+func (bc *Blockchain) getBlocks() []*Block {
+	blockBytes, err := bc.BlocksDB.Get(bc.LastBlockHash, nil)
 	if err != nil {
 		log.Panic(err)
 	}
 	block := DeserializeBlock(blockBytes)
 	blocks := []*Block{block}
-	
 
-	for (len(block.Header.PrevBlockHeaderHash) > 0){
+	for len(block.Header.PrevBlockHeaderHash) > 0 {
 		prevBlockHash := block.Header.PrevBlockHeaderHash
-		blockBytes, err = bc.BlocksDB.Get(prevBlockHash,nil)
+		blockBytes, err = bc.BlocksDB.Get(prevBlockHash, nil)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -27,38 +25,37 @@ func (bc *Blockchain) getBlocks() []*Block{
 		blocks = append([]*Block{block}, blocks...)
 	}
 
-	return blocks;
+	return blocks
 }
 
-func (bc *Blockchain) ReindexUTXOs(){
+func (bc *Blockchain) ReindexUTXOs() {
 	blocks := bc.getBlocks()
 
 	for _, block := range blocks {
-		for _, tx := range block.Transactions{
+		for _, tx := range block.Transactions {
 			tx.IndexUTXOs(bc.ChainstateDB)
 		}
 	}
 }
 
-
-func (bc * Blockchain) FindUTXOs(pubKeyHash []byte)  ([]transactions.TXOutput,error) {
-	var UTXOs []transactions.TXOutput 
+func (bc *Blockchain) FindUTXOs(pubKeyHash []byte) ([]transactions.TXOutput, error) {
+	var UTXOs []transactions.TXOutput
 	txUTXOsIter := bc.ChainstateDB.NewIterator(nil, nil)
 	for txUTXOsIter.Next() {
 		txUTXObytes := txUTXOsIter.Value()
 		txUTXOs := transactions.DeserializeUTXOs(txUTXObytes)
-		for _, UTXO := range txUTXOs{
-			if UTXO.IsLockedWithKey(pubKeyHash){
+		for _, UTXO := range txUTXOs {
+			if UTXO.IsLockedWithKey(pubKeyHash) {
 				UTXOs = append(UTXOs, UTXO)
 			}
 		}
 	}
 	txUTXOsIter.Release()
 	err := txUTXOsIter.Error()
-	return UTXOs,err
+	return UTXOs, err
 }
 
-func (bc * Blockchain) FindSpendableUTXOs(pubKeyHash []byte, amount int) (int, map[string][]int, error){
+func (bc *Blockchain) FindSpendableUTXOs(pubKeyHash []byte, amount int) (int, map[string][]int, error) {
 	UTXOs := make(map[string][]int)
 	utxoTotalAmount := 0
 	txUTXOsIter := bc.ChainstateDB.NewIterator(nil, nil)
@@ -66,8 +63,8 @@ func (bc * Blockchain) FindSpendableUTXOs(pubKeyHash []byte, amount int) (int, m
 		txHash := txUTXOsIter.Key()
 		txUTXObytes := txUTXOsIter.Value()
 		txUTXOs := transactions.DeserializeUTXOs(txUTXObytes)
-		for utxoIndex, UTXO := range txUTXOs{
-			if UTXO.IsLockedWithKey(pubKeyHash){
+		for utxoIndex, UTXO := range txUTXOs {
+			if UTXO.IsLockedWithKey(pubKeyHash) {
 				utxoTotalAmount += UTXO.Value
 				UTXOs[hex.EncodeToString(txHash)] = append(UTXOs[hex.EncodeToString(txHash)], utxoIndex)
 			}

@@ -15,40 +15,40 @@ type MerkleNode struct {
 }
 
 // each level at the merkle tree needs to have an even number of nodes
-func ensureEven(level []*MerkleNode) []*MerkleNode{
-	if len(level)%2!=0{
-		level = append(level,level[len(level)-1])
+func ensureEven(level []*MerkleNode) []*MerkleNode {
+	if len(level)%2 != 0 {
+		level = append(level, level[len(level)-1])
 	}
-	return level;
+	return level
 }
 
-func NewMerkleTree(data [][]byte) *MerkleTree{
+func NewMerkleTree(data [][]byte) *MerkleTree {
 	var currentLevelNodes []*MerkleNode
 
 	maxNumberOfNodes := len(data)
 
-	if len(data)%2!=0{
+	if len(data)%2 != 0 {
 		maxNumberOfNodes++
 	}
 
-	currentLevelNodes = make([]*MerkleNode,0,maxNumberOfNodes)
+	currentLevelNodes = make([]*MerkleNode, 0, maxNumberOfNodes)
 
 	for _, datum := range data {
-		node := NewMerkleNode(nil,nil,datum)
+		node := NewMerkleNode(nil, nil, datum)
 		currentLevelNodes = append(currentLevelNodes, node)
 	}
 
 	for len(currentLevelNodes) > 1 { //if the current level has only one node, it is the merkle tree root
 		currentLevelNodes = ensureEven(currentLevelNodes)
-		for currentLevelNodeIdx := 0; currentLevelNodeIdx < len(currentLevelNodes); currentLevelNodeIdx+=2 {
-			leftChild,rightChild := currentLevelNodes[currentLevelNodeIdx], currentLevelNodes[currentLevelNodeIdx+1]
-			node := NewMerkleNode(leftChild,rightChild,nil)
+		for currentLevelNodeIdx := 0; currentLevelNodeIdx < len(currentLevelNodes); currentLevelNodeIdx += 2 {
+			leftChild, rightChild := currentLevelNodes[currentLevelNodeIdx], currentLevelNodes[currentLevelNodeIdx+1]
+			node := NewMerkleNode(leftChild, rightChild, nil)
 			currentLevelNodes[currentLevelNodeIdx/2] = node
 		}
 		currentLevelNodes = currentLevelNodes[:len(currentLevelNodes)/2]
 	}
 
-	return &MerkleTree{currentLevelNodes[0]};
+	return &MerkleTree{currentLevelNodes[0]}
 }
 
 func NewMerkleNode(left, right *MerkleNode, data []byte) *MerkleNode {
