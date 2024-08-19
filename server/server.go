@@ -1,13 +1,11 @@
 package server
 
 import (
-	"encoding/hex"
-	"net/http"
-	"strconv"
 	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pedrogomes29/blockchain_node/blockchain"
+	"github.com/pedrogomes29/blockchain_node/blockchain_errors"
 	"github.com/pedrogomes29/blockchain_node/transactions"
 )
 
@@ -25,17 +23,9 @@ func NewServer(minerAddress string) *Server {
 	}
 }
 
-func (server *Server) AddTransactionHandler(c *gin.Context) {
-	var tx transactions.Transaction
-
-	if err := c.ShouldBindJSON(&tx); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid transaction format"})
-		return
-	}
-
+func (server *Server) AddTxToMemPool(tx transactions.Transaction) error{
 	if !tx.VerifyInputSignatures(server.bc.ChainstateDB) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Transaction inputs have at least one invalid signature"})
-		return
+		return &blockchain_errors.ErrInvalidTxInputSignature{}
 	}
 
 	server.mu.Lock()
@@ -45,52 +35,15 @@ func (server *Server) AddTransactionHandler(c *gin.Context) {
 		server.blockInProgress.Transactions = append(server.blockInProgress.Transactions, &tx)
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Transaction added to mempool successfully"})
+	return nil
 }
 
-func (server *Server) FindUTXOsHandler(c *gin.Context) {
-	pubKeyHashStr := c.Query("pubKeyHash")
-	pubKeyHash, err := hex.DecodeString(pubKeyHashStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid public key hash format"})
-		return
-	}
-
-	utxos, err := server.bc.FindUTXOs(pubKeyHash)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error finding UTXOs"})
-		return
-	}
-
-	c.JSON(http.StatusOK, utxos)
+func (server *Server) FindUTXOs(pubKeyHash []byte) ([]transactions.TXOutput, error){
+	return server.bc.FindUTXOs(pubKeyHash)
 }
 
-func (server *Server) FindSpendableUTXOsHandler(c *gin.Context) {
-	pubKeyHashStr := c.Query("pubKeyHash")
-	amountStr := c.Query("amount")
-
-	pubKeyHash, err := hex.DecodeString(pubKeyHashStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid public key hash format"})
-		return
-	}
-
-	amount, err := strconv.Atoi(amountStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid amount format"})
-		return
-	}
-
-	utxosTotal, spendableUTXOs, err := server.bc.FindSpendableUTXOs(pubKeyHash, amount)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error finding spendable UTXOs"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"total":      utxosTotal,
-		"spendable":  spendableUTXOs,
-	})
+func (server *Server) FindSpendableUTXOs(pubKeyHash []byte, amount int) (int, map[string][]int, error){
+	return server.bc.FindSpendableUTXOs(pubKeyHash, amount)
 }
 
 
@@ -115,9 +68,7 @@ func (server *Server) Run() {
 	}()
 
 	r := gin.Default()
-	r.POST("/transaction", server.AddTransactionHandler)
-	r.GET("/utxos", server.FindUTXOsHandler)
-	r.GET("/spendable_utxos", server.FindSpendableUTXOsHandler)
+	server.AddWalletRoutes(r)
 
 	// Start the HTTP server
 	if err := r.Run(":8080"); err != nil {
