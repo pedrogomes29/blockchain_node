@@ -3,6 +3,7 @@ package server
 import (
 	"log"
 	"net"
+	"strconv"
 	"strings"
 )
 
@@ -24,16 +25,39 @@ func (server *Server) ConnectToAddress(address string){
 		commands: server.commands,
 	}
 
-	server.peers[address] = newPeer
-
 	log.Printf("successfully established connection to a new peer: %s\n", address)
 
-	newPeer.send([]byte("GET_ADDR"))
+	newPeer.sendString("VERSION" + " " + strconv.Itoa(server.bc.Height))
+
+	go newPeer.ReadInput()
 }
 
 func (server *Server) ReceiveAddresses(addressesBytes [][]byte){
 	for _, addressBytes := range addressesBytes{
 		server.ConnectToAddress(string(addressBytes))
+	}
+}
+
+
+func (server *Server) ReceiveVersion(requestPeer *peer, addressesBytes [][]byte){
+	_,err := strconv.Atoi(string(addressesBytes[0])) //TODO: react to received version
+	if err!=nil{
+		log.Panicf("error parsing peer's blockchain height %s", string(addressesBytes[0]))
+	}
+	requestPeer.sendString("VERSION_ACK" + " " + strconv.Itoa(server.bc.Height))
+}
+
+func (server *Server) ReceiveVersionAck(requestPeer *peer, addressesBytes [][]byte){
+	server.peers[requestPeer.GetAddress()] = requestPeer
+	piggyBackedVersion := len(addressesBytes)>0
+	if piggyBackedVersion {
+		_,err := strconv.Atoi(string(addressesBytes[0]))
+		//TODO: react to received version
+		if err!=nil{
+			log.Panicf("error parsing peer's blockchain height %s", string(addressesBytes[0]))
+		}
+		requestPeer.sendString("VERSION_ACK")
+		requestPeer.sendString("GET_ADDR")
 	}
 }
 
@@ -45,6 +69,7 @@ func (server *Server) SendAddresses(requestPeer *peer){
 			sb.WriteString(" " + currentPeerAddr)
 		}
 	}
+	requestPeer.sendString(sb.String())
 }
 
 func (server *Server) HandleTcpCommands() {
@@ -55,9 +80,9 @@ func (server *Server) HandleTcpCommands() {
 			case ADDR:
 				server.ReceiveAddresses(cmd.args)
 			case VERSION:
-				//TODO
+				server.ReceiveVersion(cmd.peer, cmd.args)
 			case VERSION_ACK:
-				//TODO
+				server.ReceiveVersionAck(cmd.peer, cmd.args)
 		}
 	}
 }
@@ -79,7 +104,6 @@ func (server *Server) ListenForTcpConnections(){
 		}
 
 		peer := server.NewPeer(conn)
-		server.peers[peer.GetAddress()] = peer
 		go peer.ReadInput()
 	}
 }

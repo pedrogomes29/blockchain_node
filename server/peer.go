@@ -37,7 +37,8 @@ func (p * peer) ReadInput() {
 		if err != nil {
 			return
 		}
-
+		msg = msg[:len(msg)-1] //removes \n
+		fmt.Printf("received: %s\n",string(msg))
 		args := bytes.Split(msg, []byte(" "))
 		cmd := string(args[0])
 
@@ -50,7 +51,7 @@ func (p * peer) ReadInput() {
 				}
 			case "ADDR":
 				p.commands <- command{
-					id:     VERSION,
+					id:     ADDR,
 					peer:  p,
 					args: args[1:],
 				}
@@ -67,12 +68,30 @@ func (p * peer) ReadInput() {
 					args: args[1:],
 			}
 			default:
-				p.send([]byte(fmt.Errorf("unknown command: %s", cmd).Error()))
+				p.sendString(fmt.Errorf("unknown command: %s", cmd).Error())
 			}
 		}
 }
 
 
-func (c *peer) send(msg []byte) {
-	c.conn.Write(msg)
+func (c *peer) sendBytes(msg []byte) {
+	n, err := c.conn.Write(msg)
+	if n!=len(msg){
+		log.Fatal("Failed to send message: ", msg)
+	}
+	if err!=nil{
+		log.Fatal("Error sending data: ", err)
+	}
+}
+
+func (c *peer) sendString(msg string) {
+	fmt.Printf("sent: %s\n", msg)
+	n, err := c.conn.Write([]byte(string(msg) + "\n"))
+	if n!=len(msg) + 1{
+		log.Fatal("Failed to send message: ", msg)
+	}
+	if err!=nil{
+		log.Fatal("Error sending data: ", err)
+	}
+
 }

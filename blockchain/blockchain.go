@@ -11,6 +11,7 @@ import (
 
 type Blockchain struct {
 	LastBlockHash []byte
+	Height int
 	BlocksDB      *leveldb.DB
 	ChainstateDB  *leveldb.DB
 }
@@ -18,6 +19,7 @@ type Blockchain struct {
 func (bc *Blockchain) AddBlock(newBlock *Block) {
 	blockHash := newBlock.GetBlockHeaderHash()
 	bc.LastBlockHash = blockHash[:]
+	bc.Height++
 	err := bc.BlocksDB.Put(bc.LastBlockHash, newBlock.Serialize(), nil)
 	if err != nil {
 		log.Panic(err)
@@ -62,7 +64,7 @@ func NewBlockchain(genesisAddress string) *Blockchain {
 		if err != nil {
 			log.Panic(err)
 		}
-		bc = &Blockchain{LastBlockHash, blocksDB, chainstateDB}
+		bc = &Blockchain{LastBlockHash, 1, blocksDB, chainstateDB}
 		bc.ReindexUTXOs()
 	} else if err != nil {
 		log.Panic(err)
@@ -74,7 +76,7 @@ func NewBlockchain(genesisAddress string) *Blockchain {
 			log.Panic(err)
 		}
 
-		bc = &Blockchain{LastBlockHash, blocksDB, chainstateDB}
+		bc = &Blockchain{LastBlockHash, -1, blocksDB, chainstateDB} //TODO: get blockchain height from db
 	}
 
 	return bc
