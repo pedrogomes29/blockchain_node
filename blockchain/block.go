@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/gob"
+	"fmt"
 	"log"
 	"math"
 	"math/big"
@@ -27,7 +28,7 @@ type Block struct {
 }
 
 const MaxNonce = math.MaxUint32
-const targetBits = 10 //how many bits must be 0 in the header hash
+const targetBits = 14 //how many bits must be 0 in the header hash
 
 var Target *big.Int
 
@@ -39,6 +40,7 @@ func init() {
 func NewBlock(transactions []*transactions.Transaction, prevBlockHash []byte, height int) *Block {
 	blockHeader := BlockHeader{
 		PrevBlockHeaderHash: prevBlockHash,
+		Height: height,
 	}
 
 	block := &Block{
@@ -74,7 +76,7 @@ func (b *Block) POW(done chan struct{}) {
 	for possibleNonce := 0; possibleNonce < MaxNonce; possibleNonce++ {
 		b.Header.Nonce = uint32(possibleNonce)
 		if b.ValidateNonce() {
-			//fmt.Println("Mined block")
+			fmt.Printf("Mined block %d\n",b.Header.Height)
 			break
 		}
 		time.Sleep(time.Microsecond * 50)

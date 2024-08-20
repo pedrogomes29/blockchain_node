@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -92,9 +91,6 @@ func (server *Server) Run() {
 	*/
 
 	for {
-		for peer := range server.peers {
-			fmt.Println("Known neighbor:", peer)
-		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(time.Minute)
 	}
 }

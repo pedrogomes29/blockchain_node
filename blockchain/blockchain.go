@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"slices"
-
 	"github.com/pedrogomes29/blockchain_node/transactions"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
@@ -91,17 +90,16 @@ func NewBlockchain(genesisAddress string) *Blockchain {
 
 
 func (bc *Blockchain) getBlocks() []*Block {
-	prevBlockHash := bc.LastBlockHash
 	var blocks []*Block 
-
-	for len(prevBlockHash) > 0 {
-		blockBytes, err := bc.BlocksDB.Get(prevBlockHash, nil)
+	blockHash := bc.LastBlockHash
+	for len(blockHash) > 0 {
+		blockBytes, err := bc.BlocksDB.Get(blockHash, nil)
 		if err != nil {
 			log.Panic(err)
 		}
 		block := DeserializeBlock(blockBytes)
 		blocks = append(blocks,block)
-		prevBlockHash = block.Header.PrevBlockHeaderHash
+		blockHash = block.Header.PrevBlockHeaderHash
 	}
 
 	slices.Reverse(blocks)
@@ -109,17 +107,17 @@ func (bc *Blockchain) getBlocks() []*Block {
 }
 
 
-func (bc *Blockchain) GetLast5BlockHeaders() [][]byte{
+func (bc *Blockchain) GetLastBlockHashes(nrHashes int) [][]byte{
 	var blockHashes [][]byte
-	prevBlockHash := bc.LastBlockHash
-	for i:=0; i<5 && len(prevBlockHash) > 0; i++{
-		blockBytes, err := bc.BlocksDB.Get(prevBlockHash, nil)
+	blockHash := bc.LastBlockHash
+	for i:=0; i<nrHashes && len(blockHash) > 0; i++{
+		blockHashes = append(blockHashes, blockHash[:])
+		blockBytes, err := bc.BlocksDB.Get(blockHash, nil)
 		if err != nil {
 			log.Panic(err)
 		}
 		block := DeserializeBlock(blockBytes)
-		blockHash := block.GetBlockHeaderHash()
-		blockHashes = append(blockHashes, blockHash[:])
+		blockHash = block.Header.PrevBlockHeaderHash
 	}
 
 	return blockHashes

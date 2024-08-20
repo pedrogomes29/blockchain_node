@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/hex"
 	"log"
 	"strconv"
 )
@@ -28,7 +29,7 @@ const (
 type command struct {
 	id   commandID
 	peer *peer
-	args [][]byte
+	args []string
 }
 
 type versionPayload struct {
@@ -36,15 +37,15 @@ type versionPayload struct {
 	ACK        bool //whether an acknowledgement is piggybacked
 }
 
-func ParseVersionPayload(args [][]byte) versionPayload {
-	bestHeight, err := strconv.Atoi(string(args[0]))
+func ParseVersionPayload(args []string) versionPayload {
+	bestHeight, err := strconv.Atoi(args[0])
 	if err != nil {
-		log.Panicf("error parsing peer's blockchain height %s", string(args[0]))
+		log.Panicf("error parsing peer's blockchain height %s", args[0])
 	}
 	versionPayload := versionPayload{
 		BestHeight: bestHeight,
 	}
-	if len(args) > 1 && string(args[1]) == "ACK" {
+	if len(args) > 1 && args[1] == "ACK" {
 		versionPayload.ACK = true
 	}
 	return versionPayload
@@ -52,21 +53,17 @@ func ParseVersionPayload(args [][]byte) versionPayload {
 
 type addrPayload []string
 
-func ParseAddrsPayload(args [][]byte) addrPayload {
-	payload := make([]string, len(args))
-	for i, arg := range args {
-		payload[i] = string(arg)
-	}
-	return addrPayload(payload)
+func ParseAddrsPayload(args []string) addrPayload {
+	return addrPayload(args)
 }
 
 type blockHeaderHash []byte
 type getBlocksPayload []blockHeaderHash
 
-func ParseGetBlocksPayload(args [][]byte) getBlocksPayload {
+func ParseGetBlocksPayload(args []string) getBlocksPayload {
 	payload := make(getBlocksPayload, len(args))
 	for i, arg := range args {
-		payload[i] = blockHeaderHash(arg)
+		payload[i], _= hex.DecodeString(arg) //TODO: Error handling
 	}
 	return payload
 }
@@ -76,7 +73,7 @@ type objectEntry struct {
 	object     []byte
 }
 
-func ParseObjects(args [][]byte) []objectEntry {
+func ParseObjects(args []string) []objectEntry {
 	payload := make([]objectEntry, len(args)/2)
 	for i := 0; i < len(args); i += 2 {
 		entry := objectEntry{}
@@ -87,7 +84,7 @@ func ParseObjects(args [][]byte) []objectEntry {
 		case "MSG_BLOCK":
 			entry.objectType = BLOCK
 		}
-		entry.object = args[i+1]
+		entry.object, _ = hex.DecodeString(args[i+1]) //TODO: Error handling
 		payload = append(payload, entry)
 	}
 	return payload

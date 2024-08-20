@@ -1,6 +1,8 @@
 package server
 
 import (
+	"encoding/hex"
+	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -8,6 +10,7 @@ import (
 )
 
 const BLOCKCHAIN_PORT string = "8333"
+const BLOCK_CONFIRMATIONS int = 6
 
 func (server *Server) ConnectToAddress(address string) {
 	if _, ok := server.peers[address]; ok { //if address is already known
@@ -38,7 +41,27 @@ func (server *Server) ReceiveAddresses(addresses addrPayload) {
 	}
 }
 
+func (server *Server) SendGetBlocks(requestPeer *peer) {
+	lastBlockHashes := server.bc.GetLastBlockHashes(BLOCK_CONFIRMATIONS)
+	var sb strings.Builder
+	sb.WriteString("GET_BLOCKS")
+	for _, blockHash := range lastBlockHashes {
+		sb.WriteString(" " + hex.EncodeToString(blockHash))
+	}
+	requestPeer.sendString(sb.String())
+}
+
+func (server *Server) ReceiveGetBlocks(requestPeer *peer, payload getBlocksPayload) {
+	for _, blockHeaderHash := range payload{
+		fmt.Printf("\nReceived hash: %s\n", hex.EncodeToString(blockHeaderHash))
+	}
+}
+
+
 func (server *Server) ReceiveVersion(requestPeer *peer, payload versionPayload) {
+	if payload.BestHeight > server.bc.Height{
+		server.SendGetBlocks(requestPeer)
+	}
 	if !payload.ACK {
 		requestPeer.sendString("VERSION" + " " + strconv.Itoa(server.bc.Height) + " " + "ACK")
 	} else {
@@ -49,6 +72,7 @@ func (server *Server) ReceiveVersion(requestPeer *peer, payload versionPayload) 
 }
 
 func (server *Server) ReceiveVersionAck(requestPeer *peer) {
+	fmt.Printf("Connected to peer:%s\n",requestPeer.GetAddress())
 	server.peers[requestPeer.GetAddress()] = requestPeer
 }
 
@@ -74,6 +98,8 @@ func (server *Server) HandleTcpCommands() {
 			server.ReceiveVersion(cmd.peer, ParseVersionPayload(cmd.args))
 		case VERSION_ACK:
 			server.ReceiveVersionAck(cmd.peer)
+		case GET_BLOCKS:
+			server.ReceiveGetBlocks(cmd.peer, ParseGetBlocksPayload(cmd.args))
 		}
 	}
 }

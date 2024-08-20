@@ -2,10 +2,10 @@ package server
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"log"
 	"net"
+	"strings"
 )
 
 type peer struct {
@@ -31,14 +31,15 @@ func (s *Server) NewPeer(conn net.Conn) *peer {
 
 func (p *peer) ReadInput() {
 	for {
-		msg, err := bufio.NewReader(p.conn).ReadBytes('\n')
+		msg, err := bufio.NewReader(p.conn).ReadString('\n')
 		if err != nil {
 			return
 		}
 		msg = msg[:len(msg)-1] //removes \n
 		//fmt.Printf("received: %s\n",string(msg))
-		args := bytes.Split(msg, []byte(" "))
-		cmd := string(args[0])
+
+		args := strings.Split(msg, " ")
+		cmd := args[0]
 
 		switch cmd {
 		case "GET_ADDR":
@@ -65,25 +66,21 @@ func (p *peer) ReadInput() {
 				peer: p,
 				args: args[1:],
 			}
+		case "GET_BLOCKS":
+			p.commands <- command{
+				id:   GET_BLOCKS,
+				peer: p,
+				args: args[1:],
+			}
 		default:
 			p.sendString(fmt.Errorf("unknown command: %s", cmd).Error())
 		}
 	}
 }
 
-func (c *peer) sendBytes(msg []byte) {
-	n, err := c.conn.Write(msg)
-	if n != len(msg) {
-		log.Fatal("Failed to send message: ", msg)
-	}
-	if err != nil {
-		log.Fatal("Error sending data: ", err)
-	}
-}
-
 func (c *peer) sendString(msg string) {
 	//fmt.Printf("sent: %s\n", msg)
-	n, err := c.conn.Write([]byte(string(msg) + "\n"))
+	n, err := c.conn.Write([]byte(msg + "\n"))
 	if n != len(msg)+1 {
 		log.Fatal("Failed to send message: ", msg)
 	}
