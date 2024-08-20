@@ -2,31 +2,9 @@ package blockchain
 
 import (
 	"encoding/hex"
-	"log"
 
 	"github.com/pedrogomes29/blockchain_node/transactions"
 )
-
-func (bc *Blockchain) getBlocks() []*Block {
-	blockBytes, err := bc.BlocksDB.Get(bc.LastBlockHash, nil)
-	if err != nil {
-		log.Panic(err)
-	}
-	block := DeserializeBlock(blockBytes)
-	blocks := []*Block{block}
-
-	for len(block.Header.PrevBlockHeaderHash) > 0 {
-		prevBlockHash := block.Header.PrevBlockHeaderHash
-		blockBytes, err = bc.BlocksDB.Get(prevBlockHash, nil)
-		if err != nil {
-			log.Panic(err)
-		}
-		block = DeserializeBlock(blockBytes)
-		blocks = append([]*Block{block}, blocks...)
-	}
-
-	return blocks
-}
 
 func (bc *Blockchain) ReindexUTXOs() {
 	blocks := bc.getBlocks()

@@ -3,6 +3,7 @@ package blockchain
 import (
 	"fmt"
 	"log"
+	"slices"
 
 	"github.com/pedrogomes29/blockchain_node/transactions"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -86,4 +87,40 @@ func NewBlockchain(genesisAddress string) *Blockchain {
 	}
 
 	return bc
+}
+
+
+func (bc *Blockchain) getBlocks() []*Block {
+	prevBlockHash := bc.LastBlockHash
+	var blocks []*Block 
+
+	for len(prevBlockHash) > 0 {
+		blockBytes, err := bc.BlocksDB.Get(prevBlockHash, nil)
+		if err != nil {
+			log.Panic(err)
+		}
+		block := DeserializeBlock(blockBytes)
+		blocks = append(blocks,block)
+		prevBlockHash = block.Header.PrevBlockHeaderHash
+	}
+
+	slices.Reverse(blocks)
+	return blocks
+}
+
+
+func (bc *Blockchain) GetLast5BlockHeaders() [][]byte{
+	var blockHashes [][]byte
+	prevBlockHash := bc.LastBlockHash
+	for i:=0; i<5 && len(prevBlockHash) > 0; i++{
+		blockBytes, err := bc.BlocksDB.Get(prevBlockHash, nil)
+		if err != nil {
+			log.Panic(err)
+		}
+		block := DeserializeBlock(blockBytes)
+		blockHash := block.GetBlockHeaderHash()
+		blockHashes = append(blockHashes, blockHash[:])
+	}
+
+	return blockHashes
 }
