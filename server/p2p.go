@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -32,33 +33,26 @@ func (server *Server) ConnectToAddress(address string){
 	go newPeer.ReadInput()
 }
 
-func (server *Server) ReceiveAddresses(addressesBytes [][]byte){
-	for _, addressBytes := range addressesBytes{
-		server.ConnectToAddress(string(addressBytes))
+func (server *Server) ReceiveAddresses(addresses addrPayload){
+	for _, address := range addresses{
+		server.ConnectToAddress(address)
 	}
 }
 
 
-func (server *Server) ReceiveVersion(requestPeer *peer, addressesBytes [][]byte){
-	_,err := strconv.Atoi(string(addressesBytes[0])) //TODO: react to received version
-	if err!=nil{
-		log.Panicf("error parsing peer's blockchain height %s", string(addressesBytes[0]))
-	}
-	requestPeer.sendString("VERSION_ACK" + " " + strconv.Itoa(server.bc.Height))
-}
-
-func (server *Server) ReceiveVersionAck(requestPeer *peer, addressesBytes [][]byte){
-	server.peers[requestPeer.GetAddress()] = requestPeer
-	piggyBackedVersion := len(addressesBytes)>0
-	if piggyBackedVersion {
-		_,err := strconv.Atoi(string(addressesBytes[0]))
-		//TODO: react to received version
-		if err!=nil{
-			log.Panicf("error parsing peer's blockchain height %s", string(addressesBytes[0]))
-		}
+func (server *Server) ReceiveVersion(requestPeer *peer, payload versionPayload){
+	fmt.Printf("Received height %d", payload.BestHeight)
+	if !payload.ACK{
+		requestPeer.sendString("VERSION" + " " + strconv.Itoa(server.bc.Height) + " " + "ACK")
+	}else {
 		requestPeer.sendString("VERSION_ACK")
 		requestPeer.sendString("GET_ADDR")
+		server.ReceiveVersionAck(requestPeer)
 	}
+}
+
+func (server *Server) ReceiveVersionAck(requestPeer *peer){
+	server.peers[requestPeer.GetAddress()] = requestPeer
 }
 
 func (server *Server) SendAddresses(requestPeer *peer){
@@ -78,11 +72,11 @@ func (server *Server) HandleTcpCommands() {
 			case GET_ADDR:
 				server.SendAddresses(cmd.peer)
 			case ADDR:
-				server.ReceiveAddresses(cmd.args)
+				server.ReceiveAddresses(ParseAddrsPayload(cmd.args))
 			case VERSION:
-				server.ReceiveVersion(cmd.peer, cmd.args)
+				server.ReceiveVersion(cmd.peer, ParseVersionPayload(cmd.args))
 			case VERSION_ACK:
-				server.ReceiveVersionAck(cmd.peer, cmd.args)
+				server.ReceiveVersionAck(cmd.peer)
 		}
 	}
 }
