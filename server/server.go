@@ -56,13 +56,10 @@ func (server *Server) FindSpendableUTXOs(pubKeyHash []byte, amount int) (int, ma
 	return server.bc.FindSpendableUTXOs(pubKeyHash, amount)
 }
 
-
 func (server *Server) Run() {
 
 	go server.HandleTcpCommands()
 	go server.ListenForTcpConnections()
-
-
 
 	done := make(chan struct{})
 
@@ -75,6 +72,7 @@ func (server *Server) Run() {
 			server.blockInProgress = blockchain.NewBlock(
 				[]*transactions.Transaction{transactions.NewCoinbaseTX(server.minerAddress)},
 				server.bc.LastBlockHash,
+				server.bc.Height+1,
 			)
 			server.mu.Unlock()
 
@@ -83,15 +81,14 @@ func (server *Server) Run() {
 		}
 	}()
 
-
 	/*
-	r := gin.Default()
-	server.AddWalletRoutes(r)
+		r := gin.Default()
+		server.AddWalletRoutes(r)
 
-	// Start the HTTP server
-	if err := r.Run(":8080"); err != nil {
-		panic("Failed to run server: " + err.Error())
-	}
+		// Start the HTTP server
+		if err := r.Run(":8080"); err != nil {
+			panic("Failed to run server: " + err.Error())
+		}
 	*/
 
 	for {

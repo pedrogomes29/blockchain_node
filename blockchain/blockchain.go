@@ -11,7 +11,7 @@ import (
 
 type Blockchain struct {
 	LastBlockHash []byte
-	Height int
+	Height        int
 	BlocksDB      *leveldb.DB
 	ChainstateDB  *leveldb.DB
 }
@@ -34,7 +34,7 @@ func (bc *Blockchain) AddBlock(newBlock *Block) {
 }
 
 func NewBlockchain(genesisAddress string) *Blockchain {
-	var LastBlockHash []byte
+	var lastBlockHash []byte
 	var bc *Blockchain
 
 	blocksDB, err := leveldb.OpenFile("blocks", nil)
@@ -54,29 +54,35 @@ func NewBlockchain(genesisAddress string) *Blockchain {
 		cbtx := transactions.NewCoinbaseTX(genesisAddress)
 		genesis := NewGenesisBlock(cbtx)
 		genesisHash := genesis.GetBlockHeaderHash()
-		LastBlockHash = genesisHash[:]
+		lastBlockHash = genesisHash[:]
 
-		err = blocksDB.Put(LastBlockHash, genesis.Serialize(), nil)
+		err = blocksDB.Put(lastBlockHash, genesis.Serialize(), nil)
 		if err != nil {
 			log.Panic(err)
 		}
-		err = blocksDB.Put([]byte("l"), LastBlockHash, nil)
+		err = blocksDB.Put([]byte("l"), lastBlockHash, nil)
 		if err != nil {
 			log.Panic(err)
 		}
-		bc = &Blockchain{LastBlockHash, 1, blocksDB, chainstateDB}
+		bc = &Blockchain{lastBlockHash, 1, blocksDB, chainstateDB}
 		bc.ReindexUTXOs()
 	} else if err != nil {
 		log.Panic(err)
 	} else { //else, simply get the last block hash from the db
 		fmt.Println("Blockchain found. Retrieving...")
-		LastBlockHash, err = blocksDB.Get([]byte("l"), nil)
-
+		lastBlockHash, err = blocksDB.Get([]byte("l"), nil)
 		if err != nil {
 			log.Panic(err)
 		}
+		blockBytes, err := blocksDB.Get(lastBlockHash, nil)
+		if err != nil {
+			log.Panic(err)
+		}
+		lastBlock := DeserializeBlock(blockBytes)
 
-		bc = &Blockchain{LastBlockHash, -1, blocksDB, chainstateDB} //TODO: get blockchain height from db
+		fmt.Printf("\nBlockchain has height:%d\n", lastBlock.Header.Height)
+
+		bc = &Blockchain{lastBlockHash, lastBlock.Header.Height, blocksDB, chainstateDB}
 	}
 
 	return bc

@@ -18,6 +18,7 @@ type BlockHeader struct {
 	PrevBlockHeaderHash []byte
 	MerkleRootHash      []byte
 	Nonce               uint32
+	Height              int
 }
 
 type Block struct {
@@ -35,7 +36,7 @@ func init() {
 	Target.Lsh(Target, uint(256-targetBits))
 }
 
-func NewBlock(transactions []*transactions.Transaction, prevBlockHash []byte) *Block {
+func NewBlock(transactions []*transactions.Transaction, prevBlockHash []byte, height int) *Block {
 	blockHeader := BlockHeader{
 		PrevBlockHeaderHash: prevBlockHash,
 	}
@@ -49,7 +50,7 @@ func NewBlock(transactions []*transactions.Transaction, prevBlockHash []byte) *B
 }
 
 func NewGenesisBlock(coinbase *transactions.Transaction) *Block {
-	genesisblock := NewBlock([]*transactions.Transaction{coinbase}, []byte{})
+	genesisblock := NewBlock([]*transactions.Transaction{coinbase}, []byte{}, 0)
 	done := make(chan struct{})
 	go genesisblock.POW(done)
 	<-done

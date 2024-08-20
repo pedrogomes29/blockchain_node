@@ -20,7 +20,7 @@ func (server *Server) AddTransactionHandler(c *gin.Context) {
 	}
 
 	if err := server.AddTxToMemPool(tx); err != nil {
-		if errors.Is(err,&blockchain_errors.ErrInvalidTxInputSignature{}) {
+		if errors.Is(err, &blockchain_errors.ErrInvalidTxInputSignature{}) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Transaction inputs have at least one invalid signature"})
 			return
 		}
@@ -72,8 +72,8 @@ func (server *Server) FindSpendableUTXOsHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"total":      utxosTotal,
-		"spendable":  spendableUTXOs,
+		"total":     utxosTotal,
+		"spendable": spendableUTXOs,
 	})
 }
 

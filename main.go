@@ -45,7 +45,7 @@ func main() {
 			}
 		}
 	}
-	
+
 	server := server.NewServer(*minerAddr, seedAddresses)
 	server.Run()
 }
