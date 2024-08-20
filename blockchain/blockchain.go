@@ -80,7 +80,7 @@ func NewBlockchain(genesisAddress string) *Blockchain {
 		}
 		lastBlock := DeserializeBlock(blockBytes)
 
-		fmt.Printf("\nBlockchain has height:%d\n", lastBlock.Header.Height)
+		fmt.Printf("Retrieved blockchain with height:%d\n", lastBlock.Header.Height)
 
 		bc = &Blockchain{lastBlockHash, lastBlock.Header.Height, blocksDB, chainstateDB}
 	}

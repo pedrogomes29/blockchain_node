@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -26,9 +25,8 @@ func (server *Server) ConnectToAddress(address string) {
 		commands: server.commands,
 	}
 
-	log.Printf("successfully established connection to a new peer: %s\n", address)
+	//log.Printf("successfully established connection to a new peer: %s\n", address)
 
-	fmt.Printf("\nSent height %d\n\n", server.bc.Height)
 	newPeer.sendString("VERSION" + " " + strconv.Itoa(server.bc.Height))
 
 	go newPeer.ReadInput()
@@ -41,9 +39,7 @@ func (server *Server) ReceiveAddresses(addresses addrPayload) {
 }
 
 func (server *Server) ReceiveVersion(requestPeer *peer, payload versionPayload) {
-	fmt.Printf("\nReceived height %d\n\n", payload.BestHeight)
 	if !payload.ACK {
-		fmt.Printf("\nSent height %d\n\n", server.bc.Height)
 		requestPeer.sendString("VERSION" + " " + strconv.Itoa(server.bc.Height) + " " + "ACK")
 	} else {
 		requestPeer.sendString("VERSION_ACK")

@@ -21,7 +21,7 @@ func (p *peer) GetAddress() string {
 }
 
 func (s *Server) NewPeer(conn net.Conn) *peer {
-	log.Printf("new peer has connected: %s\n", conn.RemoteAddr().String())
+	//log.Printf("new peer has connected: %s\n", conn.RemoteAddr().String())
 
 	return &peer{
 		conn:     conn,
