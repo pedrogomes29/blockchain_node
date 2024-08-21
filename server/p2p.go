@@ -7,6 +7,8 @@ import (
 	"net"
 	"strconv"
 	"strings"
+
+	"github.com/pedrogomes29/blockchain_node/blockchain"
 )
 
 const BLOCKCHAIN_PORT string = "8333"
@@ -52,8 +54,36 @@ func (server *Server) SendGetBlocks(requestPeer *peer) {
 }
 
 func (server *Server) ReceiveGetBlocks(requestPeer *peer, payload getBlocksPayload) {
-	for _, blockHeaderHash := range payload{
-		fmt.Printf("\nReceived hash: %s\n", hex.EncodeToString(blockHeaderHash))
+	var block *blockchain.Block
+	var blockHash []byte
+	for _, blockHash = range payload{
+		block = server.bc.GetBlock(blockHash)
+		if block!=nil{
+			break;
+		}
+	}
+
+	if block==nil{
+		blockHash = []byte{}
+	}
+
+	var entries []objectEntry
+
+	for _,block := range server.bc.GetBlocksUpToHash(blockHash) {
+		blockHash := block.GetBlockHeaderHash()
+		entries = append(entries, objectEntry{
+			BLOCK,
+			blockHash[:],
+		})
+	}
+	
+	requestPeer.SendObjects(INV, entries)
+}
+
+
+func (server *Server) ReceiveInv(requestPeer *peer, payload []objectEntry) {
+	for _,objectEntry := range payload{
+		fmt.Printf("Received hash :%s\n", hex.EncodeToString(objectEntry.object))
 	}
 }
 
@@ -100,6 +130,8 @@ func (server *Server) HandleTcpCommands() {
 			server.ReceiveVersionAck(cmd.peer)
 		case GET_BLOCKS:
 			server.ReceiveGetBlocks(cmd.peer, ParseGetBlocksPayload(cmd.args))
+		case INV:
+			server.ReceiveInv(cmd.peer, ParseObjects(cmd.args))
 		}
 	}
 }

@@ -1,9 +1,11 @@
 package blockchain
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"slices"
+
 	"github.com/pedrogomes29/blockchain_node/transactions"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
@@ -89,10 +91,10 @@ func NewBlockchain(genesisAddress string) *Blockchain {
 }
 
 
-func (bc *Blockchain) getBlocks() []*Block {
+func (bc *Blockchain) GetBlocksUpToHash(hash []byte) []*Block {
 	var blocks []*Block 
 	blockHash := bc.LastBlockHash
-	for len(blockHash) > 0 {
+	for !bytes.Equal(blockHash,hash) {
 		blockBytes, err := bc.BlocksDB.Get(blockHash, nil)
 		if err != nil {
 			log.Panic(err)
@@ -121,4 +123,17 @@ func (bc *Blockchain) GetLastBlockHashes(nrHashes int) [][]byte{
 	}
 
 	return blockHashes
+}
+
+
+func (bc *Blockchain) GetBlock(blockHash []byte) *Block {
+	blockBytes, err := bc.BlocksDB.Get(blockHash, nil)
+	if err != nil {
+		if err == errors.ErrNotFound {
+			return nil
+		}
+		log.Panic(err)
+	}
+	block := DeserializeBlock(blockBytes)
+	return block
 }

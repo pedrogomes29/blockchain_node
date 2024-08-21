@@ -79,13 +79,13 @@ func ParseObjects(args []string) []objectEntry {
 		entry := objectEntry{}
 		entryTypeString := string(args[i])
 		switch entryTypeString {
-		case "MSG_TX":
+		case "TX":
 			entry.objectType = TX
-		case "MSG_BLOCK":
+		case "BLOCK":
 			entry.objectType = BLOCK
 		}
 		entry.object, _ = hex.DecodeString(args[i+1]) //TODO: Error handling
-		payload = append(payload, entry)
+		payload[i/2] = entry
 	}
 	return payload
 }

@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net"
@@ -72,8 +73,14 @@ func (p *peer) ReadInput() {
 				peer: p,
 				args: args[1:],
 			}
+		case "INV":
+			p.commands <- command{
+				id:   INV,
+				peer: p,
+				args: args[1:],
+			}
 		default:
-			p.sendString(fmt.Errorf("unknown command: %s", cmd).Error())
+			p.sendString(fmt.Sprintf("unknown command: %s", cmd))
 		}
 	}
 }
@@ -87,5 +94,33 @@ func (c *peer) sendString(msg string) {
 	if err != nil {
 		log.Fatal("Error sending data: ", err)
 	}
-
 }
+
+
+func (peer *peer) SendObjects(commandID commandID, entries []objectEntry){
+	var sb strings.Builder
+	switch commandID {
+	case INV:
+		sb.WriteString("INV")
+	case GET_DATA:
+		sb.WriteString("GET_DATA")
+	case DATA:
+		sb.WriteString("DATA")
+	}
+
+	for _,entry := range entries {
+		switch entry.objectType {
+		case TX:
+			sb.WriteString(" TX ")
+		case BLOCK:
+			sb.WriteString(" BLOCK ")
+		}
+		sb.WriteString(hex.EncodeToString(entry.object))
+	}
+
+	fmt.Printf("Sending entries\n%s\n",sb.String())
+
+
+	peer.sendString(sb.String())
+}
+
