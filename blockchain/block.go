@@ -48,6 +48,8 @@ func NewBlock(transactions []*transactions.Transaction, prevBlockHash []byte, he
 		Transactions: transactions,
 	}
 
+	block.Header.MerkleRootHash = block.MerkleRootHash()
+
 	return block
 }
 
@@ -60,7 +62,6 @@ func NewGenesisBlock(coinbase *transactions.Transaction) *Block {
 }
 
 func (b *Block) GetBlockHeaderHash() [32]byte {
-	b.GenerateMerkleRootHash()
 	data := bytes.Join(
 		[][]byte{
 			b.Header.PrevBlockHeaderHash,
@@ -95,7 +96,7 @@ func (b *Block) ValidateNonce() bool {
 	return isValid
 }
 
-func (b *Block) GenerateMerkleRootHash() {
+func (b *Block) MerkleRootHash() []byte{
 	var transactions [][]byte
 
 	for _, tx := range b.Transactions {
@@ -104,7 +105,7 @@ func (b *Block) GenerateMerkleRootHash() {
 
 	mTree := merkle_tree.NewMerkleTree(transactions)
 
-	b.Header.MerkleRootHash = mTree.RootNode.Data
+	return mTree.RootNode.Data
 }
 
 func (b *Block) Serialize() []byte {

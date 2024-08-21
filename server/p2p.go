@@ -82,9 +82,73 @@ func (server *Server) ReceiveGetBlocks(requestPeer *peer, payload getBlocksPaylo
 
 
 func (server *Server) ReceiveInv(requestPeer *peer, payload []objectEntry) {
-	for _,objectEntry := range payload{
-		fmt.Printf("Received hash :%s\n", hex.EncodeToString(objectEntry.object))
+	var entries []objectEntry
+
+	for _, invEntry := range payload{
+		blockHash := invEntry.object
+		block := server.bc.GetBlock(blockHash)
+		if(block!=nil){ //if block is already known
+			continue;
+		}
+		entries = append(entries, objectEntry{
+			BLOCK,
+			blockHash,
+		})
 	}
+	
+	requestPeer.SendObjects(GET_DATA, entries)
+}
+
+func (server *Server) ReceiveBlock(block *blockchain.Block) error{
+	return server.bc.AddBlock(block)
+}
+
+func (server *Server) ReceiveData(payload []objectEntry) {
+
+	for _, entry := range payload{
+		switch entry.objectType {
+		case TX:
+			//TODO
+		case BLOCK:
+			block := blockchain.DeserializeBlock(entry.object)
+			err := server.ReceiveBlock(block)
+			if err!=nil{
+				//TODO: better error handling
+				return
+			}
+		}
+
+	}
+
+	fmt.Printf("Height after receiving data: %d\n",server.bc.Height)
+}
+
+
+
+func (server *Server) ReceiveGetData(requestPeer *peer, payload []objectEntry) {
+	var entries []objectEntry
+
+	for _, entry := range payload{
+		objectHash := entry.object
+
+		var object []byte
+		switch entry.objectType {
+		case TX:
+			object = []byte{} //TODO: Get transaction from mempool
+		case BLOCK:
+			block := server.bc.GetBlock(objectHash)
+			object = block.Serialize()
+		}
+		//TODO: Error handling in case transaction/block isn't in mempool/best blockchain anymore
+
+		entries = append(entries, objectEntry{
+			entry.objectType,
+			object,
+		})
+	}
+	
+	fmt.Printf("Height before sending data: %d\n",server.bc.Height)
+	requestPeer.SendObjects(DATA, entries)
 }
 
 
@@ -132,6 +196,10 @@ func (server *Server) HandleTcpCommands() {
 			server.ReceiveGetBlocks(cmd.peer, ParseGetBlocksPayload(cmd.args))
 		case INV:
 			server.ReceiveInv(cmd.peer, ParseObjects(cmd.args))
+		case GET_DATA:
+			server.ReceiveGetData(cmd.peer, ParseObjects(cmd.args))
+		case DATA:
+			server.ReceiveData(ParseObjects(cmd.args))
 		}
 	}
 }
@@ -155,4 +223,11 @@ func (server *Server) ListenForTcpConnections() {
 		peer := server.NewPeer(conn)
 		go peer.ReadInput()
 	}
+}
+
+
+func (server *Server) BroadcastObjects(commandID commandID, entries []objectEntry){
+	for _,peer := range server.peers{
+		peer.SendObjects(commandID, entries)
+	}	
 }

@@ -81,7 +81,6 @@ func (tx Transaction) IndexUTXOs(chainstateDB *leveldb.DB) error {
 			return err
 		}
 		inputTxUTXOs := DeserializeUTXOs(inputTxUTXObytes)
-		//TODO: Verify user can
 		prevUTXO, ok := inputTxUTXOs[txInput.OutIndex]
 		if !ok {
 			return errors.New("invalid transaction, spending from already used transaction output")

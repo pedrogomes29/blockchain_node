@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log"
 	"sync"
 	"time"
 
@@ -44,6 +45,8 @@ func (server *Server) AddTxToMemPool(tx transactions.Transaction) error {
 		server.blockInProgress.Transactions = append(server.blockInProgress.Transactions, &tx)
 	}
 
+	server.blockInProgress.Header.MerkleRootHash = server.blockInProgress.MerkleRootHash()
+
 	return nil
 }
 
@@ -66,8 +69,17 @@ func (server *Server) Run() {
 		for {
 			server.mu.Lock()
 			if server.blockInProgress != nil {
-				server.bc.AddBlock(server.blockInProgress)
+				err := server.bc.AddBlock(server.blockInProgress)
+				if(err!=nil){
+					log.Panic("Error adding block to blockchain: ",err)
+				}
+				blockInProgressHash := server.blockInProgress.GetBlockHeaderHash()
+				server.BroadcastObjects(INV, []objectEntry{
+					{BLOCK, blockInProgressHash[:]},
+				})
 			}
+			
+
 			server.blockInProgress = blockchain.NewBlock(
 				[]*transactions.Transaction{transactions.NewCoinbaseTX(server.minerAddress)},
 				server.bc.LastBlockHash,

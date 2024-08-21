@@ -18,21 +18,38 @@ type Blockchain struct {
 	ChainstateDB  *leveldb.DB
 }
 
-func (bc *Blockchain) AddBlock(newBlock *Block) {
+func (bc *Blockchain) AddBlock(newBlock *Block) error {
 	blockHash := newBlock.GetBlockHeaderHash()
-	bc.LastBlockHash = blockHash[:]
-	bc.Height++
-	err := bc.BlocksDB.Put(bc.LastBlockHash, newBlock.Serialize(), nil)
+	if(bc.Height!=newBlock.Header.Height-1){
+		return errors.New("new block's height isn't current blockchain height plus 1")
+	}
+	if !bytes.Equal(newBlock.Header.PrevBlockHeaderHash, bc.LastBlockHash){
+		return errors.New("received block isn't sucessor of blockchain's last block");
+	}
+	if !bytes.Equal(newBlock.MerkleRootHash(), newBlock.Header.MerkleRootHash){
+		return errors.New("merkle root doesn't match with transactions");
+	}
+	if !newBlock.ValidateNonce(){
+		return errors.New("nonce isn't valid");
+	}
+
+	err := bc.BlocksDB.Put(blockHash[:], newBlock.Serialize(), nil)
 	if err != nil {
-		log.Panic(err)
+		return err
 	}
 
 	for _, tx := range newBlock.Transactions {
-		err := tx.IndexUTXOs(bc.ChainstateDB)
+		err := tx.IndexUTXOs(bc.ChainstateDB)//index UTXOs verifies that transactions are valid
+		//TODO: undo indexing if there is an error. Alternatively, verify all transactions and only then index?
 		if err != nil {
-			log.Panic(err)
+			return err
 		}
 	}
+
+	bc.Height = newBlock.Header.Height
+	bc.LastBlockHash = blockHash[:]
+
+	return nil
 }
 
 func NewBlockchain(genesisAddress string) *Blockchain {

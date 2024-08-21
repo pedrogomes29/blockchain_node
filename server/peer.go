@@ -79,6 +79,18 @@ func (p *peer) ReadInput() {
 				peer: p,
 				args: args[1:],
 			}
+		case "GET_DATA":
+			p.commands <- command{
+				id:   GET_DATA,
+				peer: p,
+				args: args[1:],
+			}
+		case "DATA":
+			p.commands <- command{
+				id:   DATA,
+				peer: p,
+				args: args[1:],
+			}
 		default:
 			p.sendString(fmt.Sprintf("unknown command: %s", cmd))
 		}
@@ -117,9 +129,6 @@ func (peer *peer) SendObjects(commandID commandID, entries []objectEntry){
 		}
 		sb.WriteString(hex.EncodeToString(entry.object))
 	}
-
-	fmt.Printf("Sending entries\n%s\n",sb.String())
-
 
 	peer.sendString(sb.String())
 }
