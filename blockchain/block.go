@@ -40,7 +40,7 @@ func init() {
 func NewBlock(transactions []*transactions.Transaction, prevBlockHash []byte, height int) *Block {
 	blockHeader := BlockHeader{
 		PrevBlockHeaderHash: prevBlockHash,
-		Height: height,
+		Height:              height,
 	}
 
 	block := &Block{
@@ -53,11 +53,9 @@ func NewBlock(transactions []*transactions.Transaction, prevBlockHash []byte, he
 	return block
 }
 
-func NewGenesisBlock(coinbase *transactions.Transaction) *Block {
+func NewGenesisBlock(miningChan chan int, coinbase *transactions.Transaction) *Block {
 	genesisblock := NewBlock([]*transactions.Transaction{coinbase}, []byte{}, 0)
-	done := make(chan struct{})
-	go genesisblock.POW(done)
-	<-done
+	genesisblock.POW(miningChan)
 	return genesisblock
 }
 
@@ -73,16 +71,23 @@ func (b *Block) GetBlockHeaderHash() [32]byte {
 	return sha256.Sum256(data)
 }
 
-func (b *Block) POW(done chan struct{}) {
+func (b *Block) POW(miningChan chan int) {
 	for possibleNonce := 0; possibleNonce < MaxNonce; possibleNonce++ {
-		b.Header.Nonce = uint32(possibleNonce)
-		if b.ValidateNonce() {
-			fmt.Printf("Mined block %d\n",b.Header.Height)
-			break
+		select {
+		case height := <-miningChan:
+			if(height>b.Header.Height){
+				fmt.Printf("Mining interrupted for block %d\n", b.Header.Height)
+				return
+			}
+		default:
+			b.Header.Nonce = uint32(possibleNonce)
+			if b.ValidateNonce() {
+				fmt.Printf("Mined block %d\n", b.Header.Height)
+				return
+			}
+			time.Sleep(time.Microsecond * 50)
 		}
-		time.Sleep(time.Microsecond * 50)
 	}
-	done <- struct{}{}
 }
 
 func (b *Block) ValidateNonce() bool {
@@ -96,7 +101,7 @@ func (b *Block) ValidateNonce() bool {
 	return isValid
 }
 
-func (b *Block) MerkleRootHash() []byte{
+func (b *Block) MerkleRootHash() []byte {
 	var transactions [][]byte
 
 	for _, tx := range b.Transactions {

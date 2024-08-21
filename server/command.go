@@ -63,7 +63,7 @@ type getBlocksPayload []blockHeaderHash
 func ParseGetBlocksPayload(args []string) getBlocksPayload {
 	payload := make(getBlocksPayload, len(args))
 	for i, arg := range args {
-		payload[i], _= hex.DecodeString(arg) //TODO: Error handling
+		payload[i], _ = hex.DecodeString(arg) //TODO: Error handling
 	}
 	return payload
 }

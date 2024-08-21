@@ -16,15 +16,18 @@ type Server struct {
 	blockInProgress *blockchain.Block
 	peers           map[string]*peer
 	commands        chan command
+	miningChan      chan int
 	mu              sync.Mutex
 }
 
 func NewServer(minerAddress string, seedAddrs []string) *Server {
+	miningChan := make(chan int)
 	server := &Server{
-		bc:           blockchain.NewBlockchain(minerAddress),
+		bc:           blockchain.NewBlockchain(miningChan, minerAddress),
 		minerAddress: minerAddress,
 		peers:        make(map[string]*peer),
 		commands:     make(chan command),
+		miningChan:   miningChan,
 	}
 
 	for _, seedAddres := range seedAddrs {
@@ -63,22 +66,19 @@ func (server *Server) Run() {
 	go server.HandleTcpCommands()
 	go server.ListenForTcpConnections()
 
-	done := make(chan struct{})
-
 	go func() {
 		for {
 			server.mu.Lock()
-			if server.blockInProgress != nil {
+			if server.blockInProgress != nil && server.blockInProgress.Header.Height==server.bc.Height + 1{
 				err := server.bc.AddBlock(server.blockInProgress)
-				if(err!=nil){
-					log.Panic("Error adding block to blockchain: ",err)
+				if err != nil {
+					log.Panic("Error adding block to blockchain: ", err)
 				}
 				blockInProgressHash := server.blockInProgress.GetBlockHeaderHash()
 				server.BroadcastObjects(INV, []objectEntry{
 					{BLOCK, blockInProgressHash[:]},
 				})
 			}
-			
 
 			server.blockInProgress = blockchain.NewBlock(
 				[]*transactions.Transaction{transactions.NewCoinbaseTX(server.minerAddress)},
@@ -87,8 +87,7 @@ func (server *Server) Run() {
 			)
 			server.mu.Unlock()
 
-			go server.blockInProgress.POW(done)
-			<-done
+			server.blockInProgress.POW(server.miningChan)
 		}
 	}()
 

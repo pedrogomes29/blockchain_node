@@ -3,7 +3,6 @@ package server
 import (
 	"bufio"
 	"encoding/hex"
-	"fmt"
 	"log"
 	"net"
 	"strings"
@@ -91,8 +90,6 @@ func (p *peer) ReadInput() {
 				peer: p,
 				args: args[1:],
 			}
-		default:
-			p.sendString(fmt.Sprintf("unknown command: %s", cmd))
 		}
 	}
 }
@@ -108,8 +105,7 @@ func (c *peer) sendString(msg string) {
 	}
 }
 
-
-func (peer *peer) SendObjects(commandID commandID, entries []objectEntry){
+func (peer *peer) SendObjects(commandID commandID, entries []objectEntry) {
 	var sb strings.Builder
 	switch commandID {
 	case INV:
@@ -120,7 +116,7 @@ func (peer *peer) SendObjects(commandID commandID, entries []objectEntry){
 		sb.WriteString("DATA")
 	}
 
-	for _,entry := range entries {
+	for _, entry := range entries {
 		switch entry.objectType {
 		case TX:
 			sb.WriteString(" TX ")
@@ -132,4 +128,3 @@ func (peer *peer) SendObjects(commandID commandID, entries []objectEntry){
 
 	peer.sendString(sb.String())
 }
-

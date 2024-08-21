@@ -56,63 +56,72 @@ func (server *Server) SendGetBlocks(requestPeer *peer) {
 func (server *Server) ReceiveGetBlocks(requestPeer *peer, payload getBlocksPayload) {
 	var block *blockchain.Block
 	var blockHash []byte
-	for _, blockHash = range payload{
+	for _, blockHash = range payload {
 		block = server.bc.GetBlock(blockHash)
-		if block!=nil{
-			break;
+		if block != nil {
+			break
 		}
 	}
 
-	if block==nil{
+	if block == nil {
 		blockHash = []byte{}
 	}
 
 	var entries []objectEntry
 
-	for _,block := range server.bc.GetBlocksUpToHash(blockHash) {
+	for _, block := range server.bc.GetBlocksUpToHash(blockHash) {
 		blockHash := block.GetBlockHeaderHash()
 		entries = append(entries, objectEntry{
 			BLOCK,
 			blockHash[:],
 		})
 	}
-	
+
 	requestPeer.SendObjects(INV, entries)
 }
-
 
 func (server *Server) ReceiveInv(requestPeer *peer, payload []objectEntry) {
 	var entries []objectEntry
 
-	for _, invEntry := range payload{
+	for _, invEntry := range payload {
 		blockHash := invEntry.object
 		block := server.bc.GetBlock(blockHash)
-		if(block!=nil){ //if block is already known
-			continue;
+		if block != nil { //if block is already known
+			continue
 		}
 		entries = append(entries, objectEntry{
 			BLOCK,
 			blockHash,
 		})
 	}
-	
+
 	requestPeer.SendObjects(GET_DATA, entries)
 }
 
-func (server *Server) ReceiveBlock(block *blockchain.Block) error{
-	return server.bc.AddBlock(block)
+func (server *Server) ReceiveBlock(block *blockchain.Block) error {
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	
+	err := server.bc.AddBlock(block)
+	if err != nil {
+		return err
+	}
+
+
+	server.miningChan <- block.Header.Height
+	return nil
 }
 
 func (server *Server) ReceiveData(payload []objectEntry) {
 
-	for _, entry := range payload{
+	for _, entry := range payload {
 		switch entry.objectType {
 		case TX:
 			//TODO
 		case BLOCK:
 			block := blockchain.DeserializeBlock(entry.object)
 			err := server.ReceiveBlock(block)
-			if err!=nil{
+			if err != nil {
 				//TODO: better error handling
 				return
 			}
@@ -120,15 +129,13 @@ func (server *Server) ReceiveData(payload []objectEntry) {
 
 	}
 
-	fmt.Printf("Height after receiving data: %d\n",server.bc.Height)
+	fmt.Printf("Received block with height: %d\n", server.bc.Height)
 }
-
-
 
 func (server *Server) ReceiveGetData(requestPeer *peer, payload []objectEntry) {
 	var entries []objectEntry
 
-	for _, entry := range payload{
+	for _, entry := range payload {
 		objectHash := entry.object
 
 		var object []byte
@@ -146,14 +153,12 @@ func (server *Server) ReceiveGetData(requestPeer *peer, payload []objectEntry) {
 			object,
 		})
 	}
-	
-	fmt.Printf("Height before sending data: %d\n",server.bc.Height)
+
 	requestPeer.SendObjects(DATA, entries)
 }
 
-
 func (server *Server) ReceiveVersion(requestPeer *peer, payload versionPayload) {
-	if payload.BestHeight > server.bc.Height{
+	if payload.BestHeight > server.bc.Height {
 		server.SendGetBlocks(requestPeer)
 	}
 	if !payload.ACK {
@@ -166,7 +171,7 @@ func (server *Server) ReceiveVersion(requestPeer *peer, payload versionPayload) 
 }
 
 func (server *Server) ReceiveVersionAck(requestPeer *peer) {
-	fmt.Printf("Connected to peer:%s\n",requestPeer.GetAddress())
+	fmt.Printf("Connected to peer:%s\n", requestPeer.GetAddress())
 	server.peers[requestPeer.GetAddress()] = requestPeer
 }
 
@@ -225,9 +230,8 @@ func (server *Server) ListenForTcpConnections() {
 	}
 }
 
-
-func (server *Server) BroadcastObjects(commandID commandID, entries []objectEntry){
-	for _,peer := range server.peers{
+func (server *Server) BroadcastObjects(commandID commandID, entries []objectEntry) {
+	for _, peer := range server.peers {
 		peer.SendObjects(commandID, entries)
-	}	
+	}
 }

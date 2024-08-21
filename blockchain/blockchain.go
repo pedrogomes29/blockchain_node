@@ -20,17 +20,17 @@ type Blockchain struct {
 
 func (bc *Blockchain) AddBlock(newBlock *Block) error {
 	blockHash := newBlock.GetBlockHeaderHash()
-	if(bc.Height!=newBlock.Header.Height-1){
+	if bc.Height != newBlock.Header.Height-1 {
 		return errors.New("new block's height isn't current blockchain height plus 1")
 	}
-	if !bytes.Equal(newBlock.Header.PrevBlockHeaderHash, bc.LastBlockHash){
-		return errors.New("received block isn't sucessor of blockchain's last block");
+	if !bytes.Equal(newBlock.Header.PrevBlockHeaderHash, bc.LastBlockHash) {
+		return errors.New("received block isn't sucessor of blockchain's last block")
 	}
-	if !bytes.Equal(newBlock.MerkleRootHash(), newBlock.Header.MerkleRootHash){
-		return errors.New("merkle root doesn't match with transactions");
+	if !bytes.Equal(newBlock.MerkleRootHash(), newBlock.Header.MerkleRootHash) {
+		return errors.New("merkle root doesn't match with transactions")
 	}
-	if !newBlock.ValidateNonce(){
-		return errors.New("nonce isn't valid");
+	if !newBlock.ValidateNonce() {
+		return errors.New("nonce isn't valid")
 	}
 
 	err := bc.BlocksDB.Put(blockHash[:], newBlock.Serialize(), nil)
@@ -39,7 +39,7 @@ func (bc *Blockchain) AddBlock(newBlock *Block) error {
 	}
 
 	for _, tx := range newBlock.Transactions {
-		err := tx.IndexUTXOs(bc.ChainstateDB)//index UTXOs verifies that transactions are valid
+		err := tx.IndexUTXOs(bc.ChainstateDB) //index UTXOs verifies that transactions are valid
 		//TODO: undo indexing if there is an error. Alternatively, verify all transactions and only then index?
 		if err != nil {
 			return err
@@ -52,7 +52,7 @@ func (bc *Blockchain) AddBlock(newBlock *Block) error {
 	return nil
 }
 
-func NewBlockchain(genesisAddress string) *Blockchain {
+func NewBlockchain(miningChan chan int, genesisAddress string) *Blockchain {
 	var lastBlockHash []byte
 	var bc *Blockchain
 
@@ -71,7 +71,7 @@ func NewBlockchain(genesisAddress string) *Blockchain {
 	if err == errors.ErrNotFound { //if the l key (last block hash) is not found, we are creating the db for the first time => create genesis block
 		fmt.Println("Blockchain not found. Generating genesis block...")
 		cbtx := transactions.NewCoinbaseTX(genesisAddress)
-		genesis := NewGenesisBlock(cbtx)
+		genesis := NewGenesisBlock(miningChan, cbtx)
 		genesisHash := genesis.GetBlockHeaderHash()
 		lastBlockHash = genesisHash[:]
 
@@ -107,17 +107,16 @@ func NewBlockchain(genesisAddress string) *Blockchain {
 	return bc
 }
 
-
 func (bc *Blockchain) GetBlocksUpToHash(hash []byte) []*Block {
-	var blocks []*Block 
+	var blocks []*Block
 	blockHash := bc.LastBlockHash
-	for !bytes.Equal(blockHash,hash) {
+	for !bytes.Equal(blockHash, hash) {
 		blockBytes, err := bc.BlocksDB.Get(blockHash, nil)
 		if err != nil {
 			log.Panic(err)
 		}
 		block := DeserializeBlock(blockBytes)
-		blocks = append(blocks,block)
+		blocks = append(blocks, block)
 		blockHash = block.Header.PrevBlockHeaderHash
 	}
 
@@ -125,11 +124,10 @@ func (bc *Blockchain) GetBlocksUpToHash(hash []byte) []*Block {
 	return blocks
 }
 
-
-func (bc *Blockchain) GetLastBlockHashes(nrHashes int) [][]byte{
+func (bc *Blockchain) GetLastBlockHashes(nrHashes int) [][]byte {
 	var blockHashes [][]byte
 	blockHash := bc.LastBlockHash
-	for i:=0; i<nrHashes && len(blockHash) > 0; i++{
+	for i := 0; i < nrHashes && len(blockHash) > 0; i++ {
 		blockHashes = append(blockHashes, blockHash[:])
 		blockBytes, err := bc.BlocksDB.Get(blockHash, nil)
 		if err != nil {
@@ -141,7 +139,6 @@ func (bc *Blockchain) GetLastBlockHashes(nrHashes int) [][]byte{
 
 	return blockHashes
 }
-
 
 func (bc *Blockchain) GetBlock(blockHash []byte) *Block {
 	blockBytes, err := bc.BlocksDB.Get(blockHash, nil)
