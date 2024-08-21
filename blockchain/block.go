@@ -75,7 +75,7 @@ func (b *Block) POW(miningChan chan int) {
 	for possibleNonce := 0; possibleNonce < MaxNonce; possibleNonce++ {
 		select {
 		case height := <-miningChan:
-			if(height>b.Header.Height){
+			if height > b.Header.Height {
 				fmt.Printf("Mining interrupted for block %d\n", b.Header.Height)
 				return
 			}

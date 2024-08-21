@@ -69,7 +69,7 @@ func (server *Server) Run() {
 	go func() {
 		for {
 			server.mu.Lock()
-			if server.blockInProgress != nil && server.blockInProgress.Header.Height==server.bc.Height + 1{
+			if server.blockInProgress != nil && server.blockInProgress.Header.Height == server.bc.Height+1 {
 				err := server.bc.AddBlock(server.blockInProgress)
 				if err != nil {
 					log.Panic("Error adding block to blockchain: ", err)

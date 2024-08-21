@@ -101,12 +101,11 @@ func (server *Server) ReceiveInv(requestPeer *peer, payload []objectEntry) {
 func (server *Server) ReceiveBlock(block *blockchain.Block) error {
 	server.mu.Lock()
 	defer server.mu.Unlock()
-	
+
 	err := server.bc.AddBlock(block)
 	if err != nil {
 		return err
 	}
-
 
 	server.miningChan <- block.Header.Height
 	return nil
