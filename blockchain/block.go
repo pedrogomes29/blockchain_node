@@ -53,7 +53,7 @@ func NewBlock(transactions []*transactions.Transaction, prevBlockHash []byte, he
 	return block
 }
 
-func NewGenesisBlock(miningChan chan int, coinbase *transactions.Transaction) *Block {
+func NewGenesisBlock(miningChan chan struct{}, coinbase *transactions.Transaction) *Block {
 	genesisblock := NewBlock([]*transactions.Transaction{coinbase}, []byte{}, 0)
 	genesisblock.POW(miningChan)
 	return genesisblock
@@ -71,14 +71,12 @@ func (b *Block) GetBlockHeaderHash() [32]byte {
 	return sha256.Sum256(data)
 }
 
-func (b *Block) POW(miningChan chan int) {
+func (b *Block) POW(miningChan chan struct{}) {
 	for possibleNonce := 0; possibleNonce < MaxNonce; possibleNonce++ {
 		select {
-		case height := <-miningChan:
-			if height > b.Header.Height {
-				fmt.Printf("Mining interrupted for block %d\n", b.Header.Height)
-				return
-			}
+		case <-miningChan:
+			fmt.Printf("Mining interrupted for block %d\n", b.Header.Height)
+			return
 		default:
 			b.Header.Nonce = uint32(possibleNonce)
 			if b.ValidateNonce() {

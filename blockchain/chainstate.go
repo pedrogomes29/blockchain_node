@@ -7,7 +7,7 @@ import (
 )
 
 func (bc *Blockchain) ReindexUTXOs() {
-	blocks := bc.GetBlocksUpToHash([]byte{})
+	blocks := bc.GetBlocksStartingAtHash([]byte{})
 
 	for _, block := range blocks {
 		for _, tx := range block.Transactions {

@@ -68,24 +68,27 @@ func ParseGetBlocksPayload(args []string) getBlocksPayload {
 	return payload
 }
 
-type objectEntry struct {
-	objectType objectType
-	object     []byte
+type objectEntries struct {
+	blockEntries [][]byte
+	txEntries    [][]byte
 }
 
-func ParseObjects(args []string) []objectEntry {
-	payload := make([]objectEntry, len(args)/2)
+func ParseObjects(args []string) objectEntries {
+	var blockEntries [][]byte
+	var txEntries [][]byte
 	for i := 0; i < len(args); i += 2 {
-		entry := objectEntry{}
-		entryTypeString := string(args[i])
+		entryTypeString := args[i]
+		entry, _ := hex.DecodeString(args[i+1]) //TODO: Error handling
+
 		switch entryTypeString {
 		case "TX":
-			entry.objectType = TX
+			txEntries = append(txEntries, entry)
 		case "BLOCK":
-			entry.objectType = BLOCK
+			blockEntries = append(blockEntries, entry)
 		}
-		entry.object, _ = hex.DecodeString(args[i+1]) //TODO: Error handling
-		payload[i/2] = entry
 	}
-	return payload
+	return objectEntries{
+		blockEntries: blockEntries,
+		txEntries:    txEntries,
+	}
 }

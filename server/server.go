@@ -16,12 +16,12 @@ type Server struct {
 	blockInProgress *blockchain.Block
 	peers           map[string]*peer
 	commands        chan command
-	miningChan      chan int
+	miningChan      chan struct{}
 	mu              sync.Mutex
 }
 
 func NewServer(minerAddress string, seedAddrs []string) *Server {
-	miningChan := make(chan int)
+	miningChan := make(chan struct{})
 	server := &Server{
 		bc:           blockchain.NewBlockchain(miningChan, minerAddress),
 		minerAddress: minerAddress,
@@ -40,9 +40,6 @@ func (server *Server) AddTxToMemPool(tx transactions.Transaction) error {
 	if !tx.VerifyInputSignatures(server.bc.ChainstateDB) {
 		return &blockchain_errors.ErrInvalidTxInputSignature{}
 	}
-
-	server.mu.Lock()
-	defer server.mu.Unlock()
 
 	if server.blockInProgress != nil {
 		server.blockInProgress.Transactions = append(server.blockInProgress.Transactions, &tx)
@@ -68,24 +65,24 @@ func (server *Server) Run() {
 
 	go func() {
 		for {
-			server.mu.Lock()
-			if server.blockInProgress != nil && server.blockInProgress.Header.Height == server.bc.Height+1 {
+			if server.blockInProgress != nil && server.blockInProgress.Header.Height == server.bc.Height()+1 {
+				server.mu.Lock()
 				err := server.bc.AddBlock(server.blockInProgress)
+				server.mu.Unlock()
 				if err != nil {
 					log.Panic("Error adding block to blockchain: ", err)
 				}
 				blockInProgressHash := server.blockInProgress.GetBlockHeaderHash()
-				server.BroadcastObjects(INV, []objectEntry{
-					{BLOCK, blockInProgressHash[:]},
+				server.BroadcastObjects(INV, objectEntries{
+					blockEntries: [][]byte{blockInProgressHash[:]},
 				})
 			}
 
 			server.blockInProgress = blockchain.NewBlock(
 				[]*transactions.Transaction{transactions.NewCoinbaseTX(server.minerAddress)},
-				server.bc.LastBlockHash,
-				server.bc.Height+1,
+				server.bc.LastBlockHash(),
+				server.bc.Height()+1,
 			)
-			server.mu.Unlock()
 
 			server.blockInProgress.POW(server.miningChan)
 		}

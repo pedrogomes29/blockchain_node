@@ -12,18 +12,16 @@ import (
 )
 
 type Blockchain struct {
-	LastBlockHash []byte
-	Height        int
-	BlocksDB      *leveldb.DB
-	ChainstateDB  *leveldb.DB
+	BlocksDB     *leveldb.DB
+	ChainstateDB *leveldb.DB
 }
 
 func (bc *Blockchain) AddBlock(newBlock *Block) error {
 	blockHash := newBlock.GetBlockHeaderHash()
-	if bc.Height != newBlock.Header.Height-1 {
+	if bc.Height() != newBlock.Header.Height-1 {
 		return errors.New("new block's height isn't current blockchain height plus 1")
 	}
-	if !bytes.Equal(newBlock.Header.PrevBlockHeaderHash, bc.LastBlockHash) {
+	if !bytes.Equal(newBlock.Header.PrevBlockHeaderHash, bc.LastBlockHash()) {
 		return errors.New("received block isn't sucessor of blockchain's last block")
 	}
 	if !bytes.Equal(newBlock.MerkleRootHash(), newBlock.Header.MerkleRootHash) {
@@ -38,6 +36,11 @@ func (bc *Blockchain) AddBlock(newBlock *Block) error {
 		return err
 	}
 
+	err = bc.BlocksDB.Put([]byte("l"), blockHash[:], nil)
+	if err != nil {
+		return err
+	}
+
 	for _, tx := range newBlock.Transactions {
 		err := tx.IndexUTXOs(bc.ChainstateDB) //index UTXOs verifies that transactions are valid
 		//TODO: undo indexing if there is an error. Alternatively, verify all transactions and only then index?
@@ -46,13 +49,10 @@ func (bc *Blockchain) AddBlock(newBlock *Block) error {
 		}
 	}
 
-	bc.Height = newBlock.Header.Height
-	bc.LastBlockHash = blockHash[:]
-
 	return nil
 }
 
-func NewBlockchain(miningChan chan int, genesisAddress string) *Blockchain {
+func NewBlockchain(miningChan chan struct{}, genesisAddress string) *Blockchain {
 	var lastBlockHash []byte
 	var bc *Blockchain
 
@@ -83,7 +83,7 @@ func NewBlockchain(miningChan chan int, genesisAddress string) *Blockchain {
 		if err != nil {
 			log.Panic(err)
 		}
-		bc = &Blockchain{lastBlockHash, 1, blocksDB, chainstateDB}
+		bc = &Blockchain{blocksDB, chainstateDB}
 		bc.ReindexUTXOs()
 	} else if err != nil {
 		log.Panic(err)
@@ -101,15 +101,16 @@ func NewBlockchain(miningChan chan int, genesisAddress string) *Blockchain {
 
 		fmt.Printf("Retrieved blockchain with height:%d\n", lastBlock.Header.Height)
 
-		bc = &Blockchain{lastBlockHash, lastBlock.Header.Height, blocksDB, chainstateDB}
+		bc = &Blockchain{blocksDB, chainstateDB}
 	}
 
 	return bc
 }
 
-func (bc *Blockchain) GetBlocksUpToHash(hash []byte) []*Block {
+// gets blocks from older to more recent starting from (but excluding) the argument received in the argument
+func (bc *Blockchain) GetBlocksStartingAtHash(hash []byte) []*Block {
 	var blocks []*Block
-	blockHash := bc.LastBlockHash
+	blockHash := bc.LastBlockHash()
 	for !bytes.Equal(blockHash, hash) {
 		blockBytes, err := bc.BlocksDB.Get(blockHash, nil)
 		if err != nil {
@@ -126,7 +127,7 @@ func (bc *Blockchain) GetBlocksUpToHash(hash []byte) []*Block {
 
 func (bc *Blockchain) GetLastBlockHashes(nrHashes int) [][]byte {
 	var blockHashes [][]byte
-	blockHash := bc.LastBlockHash
+	blockHash := bc.LastBlockHash()
 	for i := 0; i < nrHashes && len(blockHash) > 0; i++ {
 		blockHashes = append(blockHashes, blockHash[:])
 		blockBytes, err := bc.BlocksDB.Get(blockHash, nil)
@@ -150,4 +151,25 @@ func (bc *Blockchain) GetBlock(blockHash []byte) *Block {
 	}
 	block := DeserializeBlock(blockBytes)
 	return block
+}
+
+func (bc *Blockchain) Height() int {
+	lastBlockHash, err := bc.BlocksDB.Get([]byte("l"), nil)
+	if err != nil {
+		log.Panic(err)
+	}
+	blockBytes, err := bc.BlocksDB.Get(lastBlockHash, nil)
+	if err != nil {
+		log.Panic(err)
+	}
+	lastBlock := DeserializeBlock(blockBytes)
+	return lastBlock.Header.Height
+}
+
+func (bc *Blockchain) LastBlockHash() []byte {
+	lastBlockHash, err := bc.BlocksDB.Get([]byte("l"), nil)
+	if err != nil {
+		log.Panic(err)
+	}
+	return lastBlockHash
 }

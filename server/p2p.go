@@ -32,7 +32,7 @@ func (server *Server) ConnectToAddress(address string) {
 
 	//log.Printf("successfully established connection to a new peer: %s\n", address)
 
-	newPeer.sendString("VERSION" + " " + strconv.Itoa(server.bc.Height))
+	newPeer.sendString("VERSION" + " " + strconv.Itoa(server.bc.Height()))
 
 	go newPeer.ReadInput()
 }
@@ -55,121 +55,95 @@ func (server *Server) SendGetBlocks(requestPeer *peer) {
 
 func (server *Server) ReceiveGetBlocks(requestPeer *peer, payload getBlocksPayload) {
 	var block *blockchain.Block
-	var blockHash []byte
-	for _, blockHash = range payload {
-		block = server.bc.GetBlock(blockHash)
+	var highestCommonBlockHash []byte
+	for _, highestCommonBlockHash = range payload {
+		block = server.bc.GetBlock(highestCommonBlockHash)
 		if block != nil {
 			break
 		}
 	}
 
 	if block == nil {
-		blockHash = []byte{}
+		highestCommonBlockHash = []byte{}
 	}
 
-	var entries []objectEntry
+	var unsharedHashes [][]byte
 
-	for _, block := range server.bc.GetBlocksUpToHash(blockHash) {
+	for _, block := range server.bc.GetBlocksStartingAtHash(highestCommonBlockHash) {
 		blockHash := block.GetBlockHeaderHash()
-		entries = append(entries, objectEntry{
-			BLOCK,
-			blockHash[:],
-		})
+		unsharedHashes = append(unsharedHashes, blockHash[:])
 	}
 
-	requestPeer.SendObjects(INV, entries)
+	requestPeer.SendObjects(INV, objectEntries{
+		blockEntries: unsharedHashes,
+	})
 }
 
-func (server *Server) ReceiveInv(requestPeer *peer, payload []objectEntry) {
-	var entries []objectEntry
+func (server *Server) ReceiveInv(requestPeer *peer, payload objectEntries) {
+	var unknownHashes [][]byte
 
-	for _, invEntry := range payload {
-		blockHash := invEntry.object
+	//TODO: Receive TXs
+
+	for _, blockHash := range payload.blockEntries {
 		block := server.bc.GetBlock(blockHash)
 		if block != nil { //if block is already known
 			continue
 		}
-		entries = append(entries, objectEntry{
-			BLOCK,
-			blockHash,
-		})
+		unknownHashes = append(unknownHashes, blockHash)
 	}
 
-	requestPeer.SendObjects(GET_DATA, entries)
+	requestPeer.SendObjects(GET_DATA, objectEntries{
+		blockEntries: unknownHashes,
+	})
 }
 
-func (server *Server) ReceiveBlock(block *blockchain.Block) error {
+func (server *Server) ReceiveData(payload objectEntries) {
+	//TODO: Receive TXs
+
+	//TODO: check if data is from the best blockchain and there are no orphan blocks
+
 	server.mu.Lock()
 	defer server.mu.Unlock()
 
-	err := server.bc.AddBlock(block)
-	
-	blockHash := block.GetBlockHeaderHash()
-	server.BroadcastObjects(INV, []objectEntry{
-		{BLOCK, blockHash[:]},
-	})
-	if err != nil {
-		return err
-	}
-
-	server.miningChan <- block.Header.Height
-	return nil
-}
-
-func (server *Server) ReceiveData(payload []objectEntry) {
-
-	for _, entry := range payload {
-		switch entry.objectType {
-		case TX:
-			//TODO
-		case BLOCK:
-			block := blockchain.DeserializeBlock(entry.object)
-			err := server.ReceiveBlock(block)
-			if err != nil {
-				//TODO: better error handling
-				return
-			}
+	var newBlocksHashes [][]byte
+	for _, blockBytes := range payload.blockEntries {
+		block := blockchain.DeserializeBlock(blockBytes)
+		err := server.bc.AddBlock(block)
+		if err != nil {
+			//TODO: better error handling
+			return
 		}
 
+		newBlockHash := block.GetBlockHeaderHash()
+		newBlocksHashes = append(newBlocksHashes, newBlockHash[:])
 	}
-
-	fmt.Printf("Received block with height: %d\n", server.bc.Height)
+	server.miningChan <- struct{}{}
 }
 
-func (server *Server) ReceiveGetData(requestPeer *peer, payload []objectEntry) {
-	var entries []objectEntry
+func (server *Server) ReceiveGetData(requestPeer *peer, payload objectEntries) {
+	data := objectEntries{}
+	//TODO: Receive TXs
 
-	for _, entry := range payload {
-		objectHash := entry.object
-
-		var object []byte
-		switch entry.objectType {
-		case TX:
-			object = []byte{} //TODO: Get transaction from mempool
-		case BLOCK:
-			block := server.bc.GetBlock(objectHash)
-			object = block.Serialize()
+	for _, blockHash := range payload.blockEntries {
+		block := server.bc.GetBlock(blockHash)
+		if block == nil {
+			//TODO: Error handling in case block isn't in local blockchain anymore
 		}
-		//TODO: Error handling in case transaction/block isn't in mempool/best blockchain anymore
-
-		entries = append(entries, objectEntry{
-			entry.objectType,
-			object,
-		})
+		data.blockEntries = append(data.blockEntries, block.Serialize())
 	}
 
-	requestPeer.SendObjects(DATA, entries)
+	requestPeer.SendObjects(DATA, data)
 }
 
 func (server *Server) ReceiveVersion(requestPeer *peer, payload versionPayload) {
 	if !payload.ACK {
-		requestPeer.sendString("VERSION" + " " + strconv.Itoa(server.bc.Height) + " " + "ACK")
+		requestPeer.sendString("VERSION" + " " + strconv.Itoa(server.bc.Height()) + " " + "ACK")
 	} else {
 		requestPeer.sendString("VERSION_ACK")
 		requestPeer.sendString("GET_ADDR")
 		server.ReceiveVersionAck(requestPeer)
 	}
-	if payload.BestHeight > server.bc.Height {
+	if payload.BestHeight > server.bc.Height() {
 		server.SendGetBlocks(requestPeer)
 	}
 }
@@ -234,7 +208,7 @@ func (server *Server) ListenForTcpConnections() {
 	}
 }
 
-func (server *Server) BroadcastObjects(commandID commandID, entries []objectEntry) {
+func (server *Server) BroadcastObjects(commandID commandID, entries objectEntries) {
 	for _, peer := range server.peers {
 		peer.SendObjects(commandID, entries)
 	}

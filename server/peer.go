@@ -105,7 +105,7 @@ func (c *peer) sendString(msg string) {
 	}
 }
 
-func (peer *peer) SendObjects(commandID commandID, entries []objectEntry) {
+func (peer *peer) SendObjects(commandID commandID, entries objectEntries) {
 	var sb strings.Builder
 	switch commandID {
 	case INV:
@@ -115,15 +115,12 @@ func (peer *peer) SendObjects(commandID commandID, entries []objectEntry) {
 	case DATA:
 		sb.WriteString("DATA")
 	}
+	for _, entry := range entries.txEntries {
+		sb.WriteString(" TX " + hex.EncodeToString(entry))
+	}
 
-	for _, entry := range entries {
-		switch entry.objectType {
-		case TX:
-			sb.WriteString(" TX ")
-		case BLOCK:
-			sb.WriteString(" BLOCK ")
-		}
-		sb.WriteString(hex.EncodeToString(entry.object))
+	for _, entry := range entries.blockEntries {
+		sb.WriteString(" BLOCK " + hex.EncodeToString(entry))
 	}
 
 	peer.sendString(sb.String())
