@@ -104,8 +104,8 @@ func (server *Server) ReceiveData(payload objectEntries) {
 
 	server.mu.Lock()
 	defer server.mu.Unlock()
-
 	var newBlocksHashes [][]byte
+
 	for _, blockBytes := range payload.blockEntries {
 		block := blockchain.DeserializeBlock(blockBytes)
 		err := server.bc.AddBlock(block)
@@ -117,6 +117,9 @@ func (server *Server) ReceiveData(payload objectEntries) {
 		newBlockHash := block.GetBlockHeaderHash()
 		newBlocksHashes = append(newBlocksHashes, newBlockHash[:])
 	}
+	server.BroadcastObjects(INV, objectEntries{
+		blockEntries: newBlocksHashes,
+	})
 	server.miningChan <- struct{}{}
 }
 

@@ -72,21 +72,22 @@ func (b *Block) GetBlockHeaderHash() [32]byte {
 	return sha256.Sum256(data)
 }
 
-func (b *Block) POW(miningChan chan struct{}) {
+func (b *Block) POW(miningChan chan struct{}) bool{
 	for possibleNonce := 0; possibleNonce < MaxNonce; possibleNonce++ {
 		select {
 		case <-miningChan:
 			fmt.Printf("Mining interrupted for block %d\n", b.Header.Height)
-			return
+			return false
 		default:
 			b.Header.Nonce = uint32(possibleNonce)
 			if b.ValidateNonce() {
 				fmt.Printf("Mined block %d\n", b.Header.Height)
-				return
+				return true
 			}
 			time.Sleep(time.Microsecond * 50)
 		}
 	}
+	return false;
 }
 
 func (b *Block) ValidateNonce() bool {
