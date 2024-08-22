@@ -106,8 +106,8 @@ func (c *peer) sendString(msg string) {
 }
 
 func (peer *peer) SendObjects(commandID commandID, entries objectEntries) {
-	if len(entries.txEntries)==0 && len(entries.blockEntries)==0 {
-		return;
+	if len(entries.txEntries) == 0 && len(entries.blockEntries) == 0 {
+		return
 	}
 
 	var sb strings.Builder

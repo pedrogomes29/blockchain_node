@@ -72,7 +72,7 @@ func (b *Block) GetBlockHeaderHash() [32]byte {
 	return sha256.Sum256(data)
 }
 
-func (b *Block) POW(miningChan chan struct{}) bool{
+func (b *Block) POW(miningChan chan struct{}) bool {
 	for possibleNonce := 0; possibleNonce < MaxNonce; possibleNonce++ {
 		select {
 		case <-miningChan:
@@ -87,7 +87,7 @@ func (b *Block) POW(miningChan chan struct{}) bool{
 			time.Sleep(time.Microsecond * 50)
 		}
 	}
-	return false;
+	return false
 }
 
 func (b *Block) ValidateNonce() bool {

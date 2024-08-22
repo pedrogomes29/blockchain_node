@@ -14,7 +14,7 @@ type Server struct {
 	bc              *blockchain.Blockchain
 	minerAddress    string
 	blockInProgress *blockchain.Block
-	memoryPool      *memory_pool.MemoryPool	
+	memoryPool      *memory_pool.MemoryPool
 	peers           map[string]*peer
 	commands        chan command
 	miningChan      chan struct{}
