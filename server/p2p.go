@@ -103,6 +103,11 @@ func (server *Server) ReceiveBlock(block *blockchain.Block) error {
 	defer server.mu.Unlock()
 
 	err := server.bc.AddBlock(block)
+	
+	blockHash := block.GetBlockHeaderHash()
+	server.BroadcastObjects(INV, []objectEntry{
+		{BLOCK, blockHash[:]},
+	})
 	if err != nil {
 		return err
 	}
@@ -157,15 +162,15 @@ func (server *Server) ReceiveGetData(requestPeer *peer, payload []objectEntry) {
 }
 
 func (server *Server) ReceiveVersion(requestPeer *peer, payload versionPayload) {
-	if payload.BestHeight > server.bc.Height {
-		server.SendGetBlocks(requestPeer)
-	}
 	if !payload.ACK {
 		requestPeer.sendString("VERSION" + " " + strconv.Itoa(server.bc.Height) + " " + "ACK")
 	} else {
 		requestPeer.sendString("VERSION_ACK")
 		requestPeer.sendString("GET_ADDR")
 		server.ReceiveVersionAck(requestPeer)
+	}
+	if payload.BestHeight > server.bc.Height {
+		server.SendGetBlocks(requestPeer)
 	}
 }
 

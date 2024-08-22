@@ -36,7 +36,7 @@ func (p *peer) ReadInput() {
 			return
 		}
 		msg = msg[:len(msg)-1] //removes \n
-		//fmt.Printf("received: %s\n",string(msg))
+		//fmt.Printf("received: %s\n",msg)
 
 		args := strings.Split(msg, " ")
 		cmd := args[0]
