@@ -28,7 +28,8 @@ type Block struct {
 }
 
 const MaxNonce = math.MaxUint32
-const targetBits = 14 //how many bits must be 0 in the header hash
+const targetBits = 14            //how many bits must be 0 in the header hash
+const maxBlockSize = 1024 * 1024 //1 MB
 
 var Target *big.Int
 
@@ -97,6 +98,16 @@ func (b *Block) ValidateNonce() bool {
 	isValid := hashInt.Cmp(Target) == -1
 
 	return isValid
+}
+
+func (b *Block) AddTransaction(transaction *transactions.Transaction) bool {
+	blockWithTxSize := len(transaction.Serialize()) + len(b.Serialize())
+	if blockWithTxSize > maxBlockSize {
+		return false
+	}
+	b.Transactions = append(b.Transactions, transaction)
+	b.Header.MerkleRootHash = b.MerkleRootHash()
+	return true
 }
 
 func (b *Block) MerkleRootHash() []byte {

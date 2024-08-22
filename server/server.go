@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/hex"
 	"log"
 	"sync"
 	"time"
@@ -14,6 +15,7 @@ type Server struct {
 	bc              *blockchain.Blockchain
 	minerAddress    string
 	blockInProgress *blockchain.Block
+	memoryPool      map[string]*transactions.Transaction
 	peers           map[string]*peer
 	commands        chan command
 	miningChan      chan struct{}
@@ -25,6 +27,7 @@ func NewServer(minerAddress string, seedAddrs []string) *Server {
 	server := &Server{
 		bc:           blockchain.NewBlockchain(miningChan, minerAddress),
 		minerAddress: minerAddress,
+		memoryPool:   make(map[string]*transactions.Transaction),
 		peers:        make(map[string]*peer),
 		commands:     make(chan command),
 		miningChan:   miningChan,
@@ -41,11 +44,16 @@ func (server *Server) AddTxToMemPool(tx transactions.Transaction) error {
 		return &blockchain_errors.ErrInvalidTxInputSignature{}
 	}
 
-	if server.blockInProgress != nil {
-		server.blockInProgress.Transactions = append(server.blockInProgress.Transactions, &tx)
+	if server.blockInProgress == nil {
+		server.memoryPool[hex.EncodeToString(tx.Hash())] = &tx
+		return nil
 	}
 
-	server.blockInProgress.Header.MerkleRootHash = server.blockInProgress.MerkleRootHash()
+	addedTxToBlock := server.blockInProgress.AddTransaction(&tx)
+
+	if !addedTxToBlock {
+		server.memoryPool[hex.EncodeToString(tx.Hash())] = &tx
+	}
 
 	return nil
 }
@@ -65,17 +73,23 @@ func (server *Server) Run() {
 
 	go func() {
 		for {
-			if server.blockInProgress != nil && server.blockInProgress.Header.Height == server.bc.Height()+1 {
-				server.mu.Lock()
-				err := server.bc.AddBlock(server.blockInProgress)
-				server.mu.Unlock()
-				if err != nil {
-					log.Panic("Error adding block to blockchain: ", err)
+			if server.blockInProgress != nil {
+				if server.blockInProgress.Header.Height == server.bc.Height()+1 {
+					server.mu.Lock()
+					err := server.bc.AddBlock(server.blockInProgress)
+					server.mu.Unlock()
+					if err != nil {
+						log.Panic("Error adding block to blockchain: ", err)
+					}
+					blockInProgressHash := server.blockInProgress.GetBlockHeaderHash()
+					server.BroadcastObjects(INV, objectEntries{
+						blockEntries: [][]byte{blockInProgressHash[:]},
+					})
+				} else {
+					for _, tx := range server.blockInProgress.Transactions {
+						server.memoryPool[hex.EncodeToString(tx.Hash())] = tx
+					}
 				}
-				blockInProgressHash := server.blockInProgress.GetBlockHeaderHash()
-				server.BroadcastObjects(INV, objectEntries{
-					blockEntries: [][]byte{blockInProgressHash[:]},
-				})
 			}
 
 			server.blockInProgress = blockchain.NewBlock(

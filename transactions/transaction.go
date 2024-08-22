@@ -16,7 +16,6 @@ import (
 )
 
 type Transaction struct {
-	ID         []byte
 	Vin        []TXInput
 	Vout       []TXOutput
 	IsCoinbase bool
@@ -30,8 +29,7 @@ func NewCoinbaseTX(receiverAddress string) *Transaction {
 		log.Panic(err)
 	}
 	txin := TXInput{[]byte{}, -1, nil, []byte(utils.GenerateRandomString(20))}
-	tx := Transaction{nil, []TXInput{txin}, []TXOutput{*txout}, true}
-	tx.ID = tx.Hash()
+	tx := Transaction{[]TXInput{txin}, []TXOutput{*txout}, true}
 	return &tx
 }
 
@@ -59,7 +57,7 @@ func (tx Transaction) IndexUTXOs(chainstateDB *leveldb.DB) error {
 		for i, txoutput := range tx.Vout {
 			txUTXOs[i] = txoutput
 		}
-		err := chainstateDB.Put(tx.ID, txUTXOs.Serialize(), nil)
+		err := chainstateDB.Put(tx.Hash(), txUTXOs.Serialize(), nil)
 		if err != nil {
 			return err
 		}
@@ -102,7 +100,7 @@ func (tx Transaction) IndexUTXOs(chainstateDB *leveldb.DB) error {
 	if txInputTotal < txOutputTotal {
 		return errors.New("invalid transaction, total output value is larger than total input value")
 	}
-	updatedUTXOs[hex.EncodeToString(tx.ID)] = txUTXOs
+	updatedUTXOs[hex.EncodeToString(tx.Hash())] = txUTXOs
 
 	for updatedTXHashString, utxos := range updatedUTXOs {
 		updatedTXHash, err := hex.DecodeString(updatedTXHashString)
@@ -135,7 +133,6 @@ func (tx Transaction) TrimmedCopy() Transaction {
 	}
 
 	txTrimmed := Transaction{
-		tx.ID,
 		inputs,
 		outputs,
 		tx.IsCoinbase,
