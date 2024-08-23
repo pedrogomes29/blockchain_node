@@ -6,7 +6,6 @@ import (
 	"log"
 	"slices"
 
-	"github.com/pedrogomes29/blockchain_node/transactions"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 )
@@ -86,9 +85,6 @@ func (bc *Blockchain) RemoveBlock(blockHash []byte) error {
 }
 
 func NewBlockchain(miningChan chan struct{}, genesisAddress string) *Blockchain {
-	var lastBlockHash []byte
-	var bc *Blockchain
-
 	blocksDB, err := leveldb.OpenFile("blocks", nil)
 	if err != nil {
 		log.Panic(err)
@@ -103,30 +99,18 @@ func NewBlockchain(miningChan chan struct{}, genesisAddress string) *Blockchain 
 
 	if err == leveldb.ErrNotFound {
 		//if the l key (last block hash) is not found, we are creating the db for the first time => set "l" as empty []byte
-		fmt.Println("Blockchain not found. Generating genesis block...")
-		cbtx := transactions.NewCoinbaseTX(genesisAddress)
-		genesis := NewGenesisBlock(miningChan, cbtx)
-		genesisHash := genesis.GetBlockHeaderHash()
-		lastBlockHash = genesisHash
-
-		err = blocksDB.Put(lastBlockHash, genesis.Serialize(), nil)
+		fmt.Println("Blockchain not found. Creating...")
+		err = blocksDB.Put([]byte("l"), []byte{}, nil)
 		if err != nil {
 			log.Panic(err)
 		}
-		err = blocksDB.Put([]byte("l"), lastBlockHash, nil)
-		if err != nil {
-			log.Panic(err)
-		}
-		bc = &Blockchain{blocksDB, chainstateDB}
-		bc.ReindexUTXOs()
 	} else if err != nil {
 		log.Panic(err)
 	} else {
 		fmt.Println("Blockchain found. Retrieving...")
-		bc = &Blockchain{blocksDB, chainstateDB}
 	}
 
-	return bc
+	return &Blockchain{blocksDB, chainstateDB}
 }
 
 // gets blocks from older to more recent starting from (but excluding) the argument received in the argument
