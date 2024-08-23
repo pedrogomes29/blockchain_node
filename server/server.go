@@ -46,6 +46,10 @@ func (server *Server) AddTxToMemPool(tx transactions.Transaction) error {
 	server.memoryPool.PushBackTx(&tx)
 	_ = server.blockInProgress.AddTransaction(&tx)
 
+	server.BroadcastObjects(INV, objectEntries{
+		txEntries: [][]byte{tx.Hash()},
+	})
+
 	return nil
 }
 

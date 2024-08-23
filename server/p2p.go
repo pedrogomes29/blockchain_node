@@ -12,6 +12,7 @@ import (
 
 	"github.com/pedrogomes29/blockchain_node/blockchain"
 	"github.com/pedrogomes29/blockchain_node/blockchain_errors"
+	"github.com/pedrogomes29/blockchain_node/transactions"
 )
 
 const BLOCKCHAIN_PORT string = "8333"
@@ -221,11 +222,26 @@ func (server *Server) ReceiveBlocks(requestPeer *peer, serializedBlocks [][]byte
 	return newBlocksHashes
 }
 
+func (server *Server) ReceiveTxs(requestPeer *peer, serializedTxs [][]byte) [][]byte {
+	var newTxHashes [][]byte
+	for _, txBytes := range serializedTxs {
+		tx := transactions.Deserialize(txBytes)
+		txHash := tx.Hash()
+		if server.memoryPool.GetTx(txHash) != nil {
+			continue
+		}
+		server.memoryPool.PushBackTx(tx)
+		newTxHashes = append(newTxHashes, txHash)
+	}
+	return newTxHashes
+}
+
 func (server *Server) ReceiveData(requestPeer *peer, payload objectEntries) {
-	//TODO: Receive TXs
+	newTxHashes := server.ReceiveTxs(requestPeer, payload.txEntries)
 	newBlocksHashes := server.ReceiveBlocks(requestPeer, payload.blockEntries)
 	server.BroadcastObjects(INV, objectEntries{
 		blockEntries: newBlocksHashes,
+		txEntries:    newTxHashes,
 	})
 }
 

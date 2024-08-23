@@ -45,6 +45,19 @@ func (tx Transaction) Serialize() []byte {
 	return encoded.Bytes()
 }
 
+func Deserialize(data []byte) *Transaction {
+	var tx *Transaction
+
+	decoded := bytes.NewReader(data)
+	dec := gob.NewDecoder(decoded)
+	err := dec.Decode(tx)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return tx
+}
+
 func (tx Transaction) Hash() []byte {
 	hash := sha256.Sum256(tx.Serialize())
 
