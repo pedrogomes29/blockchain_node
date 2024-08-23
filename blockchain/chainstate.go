@@ -7,7 +7,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-
 func (bc *Blockchain) ReindexUTXOs() {
 	blocks := bc.GetBlocksStartingAtHash([]byte{})
 

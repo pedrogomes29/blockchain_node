@@ -21,7 +21,6 @@ type Transaction struct {
 	IsCoinbase bool
 }
 
-
 const UTXO_PREFIX string = "utxo:"
 const REV_UTXO_PREFIX string = "rev:"
 
@@ -73,7 +72,7 @@ func (tx Transaction) IndexUTXOs(chainstateDB *leveldb.DB) error {
 		for i, txoutput := range tx.Vout {
 			txUTXOs[i] = txoutput
 		}
-		err := chainstateDB.Put(append([]byte(UTXO_PREFIX),tx.Hash()...), txUTXOs.Serialize(), nil)
+		err := chainstateDB.Put(append([]byte(UTXO_PREFIX), tx.Hash()...), txUTXOs.Serialize(), nil)
 		if err != nil {
 			return err
 		}
