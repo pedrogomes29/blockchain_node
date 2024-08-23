@@ -21,6 +21,10 @@ type Transaction struct {
 	IsCoinbase bool
 }
 
+
+const UTXO_PREFIX string = "utxo:"
+const REV_UTXO_PREFIX string = "rev:"
+
 const subsidy = 10 //TODO calculate dynamically given number of blocks (deflationary)
 
 func NewCoinbaseTX(receiverAddress string) *Transaction {
@@ -69,7 +73,7 @@ func (tx Transaction) IndexUTXOs(chainstateDB *leveldb.DB) error {
 		for i, txoutput := range tx.Vout {
 			txUTXOs[i] = txoutput
 		}
-		err := chainstateDB.Put(tx.Hash(), txUTXOs.Serialize(), nil)
+		err := chainstateDB.Put(append([]byte(UTXO_PREFIX),tx.Hash()...), txUTXOs.Serialize(), nil)
 		if err != nil {
 			return err
 		}
@@ -90,7 +94,7 @@ func (tx Transaction) IndexUTXOs(chainstateDB *leveldb.DB) error {
 
 	for _, txInput := range tx.Vin {
 		inputTxHash := txInput.Txid
-		inputTxUTXObytes, err := chainstateDB.Get(append([]byte("utxo:"), inputTxHash...), nil)
+		inputTxUTXObytes, err := chainstateDB.Get(append([]byte(UTXO_PREFIX), inputTxHash...), nil)
 		if err != nil {
 			return err
 		}
@@ -133,14 +137,14 @@ func (tx Transaction) IndexUTXOs(chainstateDB *leveldb.DB) error {
 		if err != nil {
 			return err
 		}
-		err = chainstateDB.Put(append([]byte("utxo:"), inputTxHash...), inputTxUpdatedUTXOs.Serialize(), nil) //store updated utxos
+		err = chainstateDB.Put(append([]byte(UTXO_PREFIX), inputTxHash...), inputTxUpdatedUTXOs.Serialize(), nil) //store updated utxos
 		if err != nil {
 			return err
 		}
 
 		if spentUTXOFromInputTx {
 			inputTxRevUTXOsKey := bytes.Join([][]byte{
-				[]byte("rev:"),
+				[]byte(REV_UTXO_PREFIX),
 				tx.Hash(),
 				[]byte(":"),
 				inputTxHash,
@@ -159,21 +163,21 @@ func (tx Transaction) IndexUTXOs(chainstateDB *leveldb.DB) error {
 }
 
 func (tx Transaction) RevertUTXOIndex(chainstateDB *leveldb.DB) error {
-	err := chainstateDB.Delete(append([]byte("utxo:"), tx.Hash()...), nil) //deletes UTXOs of the current transaction
+	err := chainstateDB.Delete(append([]byte(UTXO_PREFIX), tx.Hash()...), nil) //deletes UTXOs of the current transaction
 	if err != nil {
 		return err
 	}
 
 	for _, txInput := range tx.Vin {
 		inputTxHash := txInput.Txid
-		inputTxUTXObytes, err := chainstateDB.Get(append([]byte("utxo:"), inputTxHash...), nil)
+		inputTxUTXObytes, err := chainstateDB.Get(append([]byte(UTXO_PREFIX), inputTxHash...), nil)
 		if err != nil {
 			return err
 		}
 		inputTxUTXOs := DeserializeUTXOs(inputTxUTXObytes)
 
 		inputTxRevUTXOsKey := bytes.Join([][]byte{
-			[]byte("rev:"),
+			[]byte(REV_UTXO_PREFIX),
 			tx.Hash(),
 			[]byte(":"),
 			inputTxHash,
@@ -194,7 +198,7 @@ func (tx Transaction) RevertUTXOIndex(chainstateDB *leveldb.DB) error {
 			inputTxUTXOs[outIdx] = utxo //add utxos back
 		}
 
-		err = chainstateDB.Put(append([]byte("utxo:"), inputTxHash...), inputTxUTXOs.Serialize(), nil) //store updated UTXOs
+		err = chainstateDB.Put(append([]byte(UTXO_PREFIX), inputTxHash...), inputTxUTXOs.Serialize(), nil) //store updated UTXOs
 		if err != nil {
 			return err
 		}
@@ -238,7 +242,7 @@ func (tx Transaction) VerifyInputSignatures(chainstateDB *leveldb.DB) bool {
 	curve := elliptic.P256()
 
 	for _, txIn := range tx.Vin {
-		inputTxUTXObytes, err := chainstateDB.Get(append([]byte("utxo:"), txIn.Txid...), nil)
+		inputTxUTXObytes, err := chainstateDB.Get(append([]byte(UTXO_PREFIX), txIn.Txid...), nil)
 		if err != nil {
 			return false
 		}
