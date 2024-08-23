@@ -166,8 +166,19 @@ func (server *Server) ReceiveBlocks(requestPeer *peer, serializedBlocks [][]byte
 	server.mu.Lock()
 	defer server.mu.Unlock()
 
-	for !bytes.Equal(server.bc.LastBlockHash(), highestKnownBlock.GetBlockHeaderHash()) {
-		//TODO: remove blocks after highest known
+	highestKnownBlockHash := highestKnownBlock.GetBlockHeaderHash()
+	if server.bc.GetBlock(highestKnownBlockHash) == nil { //highest known block is no longer in blockchain
+		return nil
+	}
+
+	lastBlockHash := server.bc.LastBlockHash()
+	for !bytes.Equal(lastBlockHash, highestKnownBlockHash) {
+		err := server.bc.RemoveBlock(lastBlockHash)
+		if err != nil {
+			//TODO: better error handling
+			return nil
+		}
+		lastBlockHash = server.bc.LastBlockHash()
 	}
 
 	var newBlocksHashes [][]byte
@@ -177,7 +188,6 @@ func (server *Server) ReceiveBlocks(requestPeer *peer, serializedBlocks [][]byte
 			//TODO: better error handling
 			return nil
 		}
-
 		newBlockHash := block.GetBlockHeaderHash()
 		newBlocksHashes = append(newBlocksHashes, newBlockHash)
 	}

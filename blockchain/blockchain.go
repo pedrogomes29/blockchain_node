@@ -52,6 +52,32 @@ func (bc *Blockchain) AddBlock(newBlock *Block) error {
 	return nil
 }
 
+func (bc *Blockchain) RemoveBlock(blockHash []byte) error {
+	if !bytes.Equal(blockHash, bc.LastBlockHash()) {
+		return errors.New("can only remove last block")
+	}
+
+	block := bc.GetBlock(blockHash)
+
+	if block == nil {
+		return errors.New("block not found")
+	}
+
+	err := bc.BlocksDB.Delete(blockHash, nil) //delete block from db
+	if err != nil {
+		return err
+	}
+
+	err = bc.BlocksDB.Put([]byte("l"), block.Header.PrevBlockHeaderHash, nil) //update last block hash in db
+	if err != nil {
+		return err
+	}
+
+	//TOOD: Revert UTXO index
+
+	return nil
+}
+
 func NewBlockchain(miningChan chan struct{}, genesisAddress string) *Blockchain {
 	var lastBlockHash []byte
 	var bc *Blockchain
