@@ -2,8 +2,8 @@ package server
 
 import (
 	"sync"
-	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/pedrogomes29/blockchain_node/blockchain"
 	"github.com/pedrogomes29/blockchain_node/blockchain_errors"
 	"github.com/pedrogomes29/blockchain_node/memory_pool"
@@ -66,17 +66,12 @@ func (server *Server) Run() {
 	go server.HandleTcpCommands()
 	go server.ListenForTcpConnections()
 	go server.POWLoop()
-	/*
-		r := gin.Default()
-		server.AddWalletRoutes(r)
 
-		// Start the HTTP server
-		if err := r.Run(":8080"); err != nil {
-			panic("Failed to run server: " + err.Error())
-		}
-	*/
+	r := gin.Default()
+	server.AddWalletRoutes(r)
 
-	for {
-		time.Sleep(time.Minute)
+	// Start the HTTP server
+	if err := r.Run(":8080"); err != nil {
+		panic("Failed to run server: " + err.Error())
 	}
 }

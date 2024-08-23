@@ -258,11 +258,17 @@ func (server *Server) ReceiveTxs(requestPeer *peer, serializedTxs [][]byte) [][]
 }
 
 func (server *Server) ReceiveData(requestPeer *peer, payload objectEntries) {
-	newTxHashes := server.ReceiveTxs(requestPeer, payload.txEntries)
-	newBlocksHashes := server.ReceiveBlocks(requestPeer, payload.blockEntries)
+	var newTxsHashes [][]byte
+	var newBlocksHashes [][]byte
+	if len(payload.txEntries) > 0 {
+		newTxsHashes = server.ReceiveTxs(requestPeer, payload.txEntries)
+	}
+	if len(payload.blockEntries) > 0 {
+		newBlocksHashes = server.ReceiveBlocks(requestPeer, payload.blockEntries)
+	}
 	server.BroadcastObjects(INV, objectEntries{
 		blockEntries: newBlocksHashes,
-		txEntries:    newTxHashes,
+		txEntries:    newTxsHashes,
 	})
 }
 

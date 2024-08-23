@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 
 	"github.com/pedrogomes29/blockchain_node/transactions"
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 func (bc *Blockchain) ReindexUTXOs() {
@@ -36,7 +37,7 @@ func (bc *Blockchain) FindUTXOs(pubKeyHash []byte) ([]transactions.TXOutput, err
 func (bc *Blockchain) FindSpendableUTXOs(pubKeyHash []byte, amount int) (int, map[string][]int, error) {
 	UTXOs := make(map[string][]int)
 	utxoTotalAmount := 0
-	txUTXOsIter := bc.ChainstateDB.NewIterator(nil, nil)
+	txUTXOsIter := bc.ChainstateDB.NewIterator(util.BytesPrefix([]byte("utxo:")), nil)
 	for txUTXOsIter.Next() {
 		txHash := txUTXOsIter.Key()
 		txUTXObytes := txUTXOsIter.Value()
