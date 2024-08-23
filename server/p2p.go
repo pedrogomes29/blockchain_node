@@ -149,6 +149,30 @@ func (server *Server) parseBlocks(serializedBlocks [][]byte) (*blockchain.Block,
 	return highestKnownBlock, newBlocks, nil
 }
 
+func (server *Server) AddBlockToBc(newBlock *blockchain.Block) error {
+	err := server.bc.AddBlock(newBlock)
+	if err != nil {
+		return err
+	}
+
+	for _, tx := range newBlock.Transactions {
+		server.memoryPool.DeleteTx(tx.Hash())
+	}
+	return nil
+}
+
+func (server *Server) RemoveBlockFromBc(blockHash []byte) error {
+	removedBlock := server.bc.GetBlock(blockHash)
+	err := server.bc.RemoveBlock(blockHash)
+	if err != nil {
+		return err
+	}
+	for _, tx := range removedBlock.Transactions {
+		server.memoryPool.PushFrontTx(tx)
+	}
+	return nil
+}
+
 func (server *Server) ReceiveBlocks(requestPeer *peer, serializedBlocks [][]byte) [][]byte {
 	highestKnownBlock, newBlocks, err := server.parseBlocks(serializedBlocks)
 	if errors.Is(err, &blockchain_errors.ErrOrphanBlock{}) {
@@ -173,7 +197,7 @@ func (server *Server) ReceiveBlocks(requestPeer *peer, serializedBlocks [][]byte
 
 	lastBlockHash := server.bc.LastBlockHash()
 	for !bytes.Equal(lastBlockHash, highestKnownBlockHash) {
-		err := server.bc.RemoveBlock(lastBlockHash)
+		err := server.RemoveBlockFromBc(lastBlockHash)
 		if err != nil {
 			//TODO: better error handling
 			return nil
@@ -183,11 +207,12 @@ func (server *Server) ReceiveBlocks(requestPeer *peer, serializedBlocks [][]byte
 
 	var newBlocksHashes [][]byte
 	for _, block := range newBlocks {
-		err := server.bc.AddBlock(block)
+		err := server.AddBlockToBc(block)
 		if err != nil {
 			//TODO: better error handling
 			return nil
 		}
+
 		newBlockHash := block.GetBlockHeaderHash()
 		newBlocksHashes = append(newBlocksHashes, newBlockHash)
 	}

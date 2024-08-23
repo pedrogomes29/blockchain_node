@@ -5,10 +5,10 @@ import (
 	"github.com/pedrogomes29/blockchain_node/transactions"
 )
 
-func (server *Server) AddBlockInProgressToBC() {
+func (server *Server) AddBlockInProgToBC() {
 	server.mu.Lock()
 	defer server.mu.Unlock()
-	err := server.bc.AddBlock(server.blockInProgress)
+	err := server.AddBlockToBc(server.blockInProgress)
 	if err != nil {
 		//TODO: error handling
 	}
@@ -28,7 +28,7 @@ func (server *Server) POW() {
 	minedBlock := server.blockInProgress.POW(server.miningChan)
 
 	if minedBlock {
-		server.AddBlockInProgressToBC()
+		server.AddBlockInProgToBC()
 		blockInProgressHash := server.blockInProgress.GetBlockHeaderHash()
 		server.BroadcastObjects(INV, objectEntries{
 			blockEntries: [][]byte{blockInProgressHash},
