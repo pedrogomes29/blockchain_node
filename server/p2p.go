@@ -80,20 +80,26 @@ func (server *Server) ReceiveGetBlocks(requestPeer *peer, payload getBlocksPaylo
 }
 
 func (server *Server) ReceiveInv(requestPeer *peer, payload objectEntries) {
-	var unknownHashes [][]byte
-
-	//TODO: Receive TXs
-
+	var unknownBlockHashes [][]byte
+	var unkownTxHashes [][]byte
+	for _, txHash := range payload.txEntries {
+		tx := server.memoryPool.GetTx(txHash)
+		if tx != nil { //if tx is already known
+			continue
+		}
+		unkownTxHashes = append(unkownTxHashes, txHash)
+	}
 	for _, blockHash := range payload.blockEntries {
 		block := server.bc.GetBlock(blockHash)
 		if block != nil { //if block is already known
 			continue
 		}
-		unknownHashes = append(unknownHashes, blockHash)
+		unknownBlockHashes = append(unknownBlockHashes, blockHash)
 	}
 
 	requestPeer.SendObjects(GET_DATA, objectEntries{
-		blockEntries: unknownHashes,
+		txEntries: unkownTxHashes,
+		blockEntries: unknownBlockHashes,
 	})
 }
 
