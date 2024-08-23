@@ -103,10 +103,22 @@ func (server *Server) ReceiveInv(requestPeer *peer, payload objectEntries) {
 	})
 }
 
+func getReceivedBCHeight(serializedBlocks [][]byte) int{
+	lastBlockIdx := len(serializedBlocks)-1
+	lastBlockBytes := serializedBlocks[lastBlockIdx]
+	lastBlock := blockchain.DeserializeBlock(lastBlockBytes)
+	return lastBlock.Header.Height
+}
+
 func (server *Server) ReceiveData(payload objectEntries) {
 	//TODO: Receive TXs
 
-	//TODO: check if data is from the best blockchain and there are no orphan blocks
+	serializedBlocks := payload.blockEntries
+	if getReceivedBCHeight(serializedBlocks) <= server.bc.Height() {
+		return
+	}
+
+
 
 	server.mu.Lock()
 	defer server.mu.Unlock()
