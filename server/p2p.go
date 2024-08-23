@@ -113,7 +113,14 @@ func (server *Server) parseBlocks(serializedBlocks [][]byte) (*blockchain.Block,
 
 	firstBlockBytes := serializedBlocks[0]
 	firstRemoteBlock := blockchain.DeserializeBlock(firstBlockBytes)
+
+	fmt.Printf("First remote block prev hash:%s\n", hex.EncodeToString(firstRemoteBlock.Header.PrevBlockHeaderHash))
+
+	//TODO: no common blocks, but firstRemoteBlock is genesis block
+
 	highestKnownBlock = server.bc.GetBlock(firstRemoteBlock.Header.PrevBlockHeaderHash)
+	fmt.Printf("highestKnownBlock hash:%s\n", hex.EncodeToString(highestKnownBlock.GetBlockHeaderHash()))
+
 	if highestKnownBlock == nil { //first remote block's parent isn't known
 		return nil, nil, &blockchain_errors.ErrOrphanBlock{}
 	}
@@ -183,6 +190,9 @@ func (server *Server) ReceiveBlocks(requestPeer *peer, serializedBlocks [][]byte
 	if len(newBlocks) == 0 {
 		return nil
 	}
+
+	fmt.Printf("Height of common block:%d\n", highestKnownBlock.Header.Height)
+
 	newChainHeight := highestKnownBlock.Header.Height + len(newBlocks)
 	if newChainHeight <= server.bc.Height() {
 		return nil

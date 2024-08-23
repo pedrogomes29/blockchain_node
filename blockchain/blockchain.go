@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"slices"
@@ -53,6 +54,7 @@ func (bc *Blockchain) AddBlock(newBlock *Block) error {
 }
 
 func (bc *Blockchain) RemoveBlock(blockHash []byte) error {
+	fmt.Printf("Removing block with hash:%s\n", hex.EncodeToString(blockHash))
 	if !bytes.Equal(blockHash, bc.LastBlockHash()) {
 		return errors.New("can only remove last block")
 	}
@@ -73,8 +75,12 @@ func (bc *Blockchain) RemoveBlock(blockHash []byte) error {
 		return err
 	}
 
-	//TOOD: Revert UTXO index
-
+	for _, tx := range block.Transactions {
+		err := tx.RevertUTXOIndex(bc.ChainstateDB)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -94,7 +100,7 @@ func NewBlockchain(miningChan chan struct{}, genesisAddress string) *Blockchain 
 
 	_, err = blocksDB.Get([]byte("l"), nil)
 
-	if err == errors.ErrNotFound { //if the l key (last block hash) is not found, we are creating the db for the first time => create genesis block
+	if err == leveldb.ErrNotFound { //if the l key (last block hash) is not found, we are creating the db for the first time => create genesis block
 		fmt.Println("Blockchain not found. Generating genesis block...")
 		cbtx := transactions.NewCoinbaseTX(genesisAddress)
 		genesis := NewGenesisBlock(miningChan, cbtx)
@@ -170,7 +176,7 @@ func (bc *Blockchain) GetLastBlockHashes(nrHashes int) [][]byte {
 func (bc *Blockchain) GetBlock(blockHash []byte) *Block {
 	blockBytes, err := bc.BlocksDB.Get(blockHash, nil)
 	if err != nil {
-		if err == errors.ErrNotFound {
+		if err == leveldb.ErrNotFound {
 			return nil
 		}
 		log.Panic(err)

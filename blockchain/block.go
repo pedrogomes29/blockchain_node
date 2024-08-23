@@ -120,7 +120,6 @@ func (b *Block) MerkleRootHash() []byte {
 	}
 
 	mTree := merkle_tree.NewMerkleTree(transactions)
-
 	return mTree.RootNode.Data
 }
 

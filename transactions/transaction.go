@@ -83,7 +83,11 @@ func (tx Transaction) IndexUTXOs(chainstateDB *leveldb.DB) error {
 
 	txInputTotal := 0
 
-	updatedUTXOs := make(map[string]UTXOs) //stores updated UTXOs temporarily to only update after verifying transaction is valid
+	//stores updated UTXOs temporarily to only update after verifying transaction is valid
+	inputTxsUpdatedUTXOs := make(map[string]UTXOs)
+
+	//stores UTXOs that were deleted from the index temporarily to only update after verifying transaction is valid
+	inputTxsSpentUTXOs := make(map[string]UTXOs)
 
 	for _, txInput := range tx.Vin {
 		inputTxHash := txInput.Txid
@@ -92,15 +96,22 @@ func (tx Transaction) IndexUTXOs(chainstateDB *leveldb.DB) error {
 			return err
 		}
 		inputTxUTXOs := DeserializeUTXOs(inputTxUTXObytes)
-		prevUTXO, ok := inputTxUTXOs[txInput.OutIndex]
-		if !ok {
+		prevUTXO, isUTXO := inputTxUTXOs[txInput.OutIndex]
+		if !isUTXO { //if spent UTXO
 			return errors.New("invalid transaction, spending from already used transaction output")
 		}
 
 		txInputTotal += prevUTXO.Value
 
+		inputHashString := hex.EncodeToString(inputTxHash)
+		_, spentUTXOFromInputTx := inputTxsSpentUTXOs[inputHashString]
+		if !spentUTXOFromInputTx {
+			inputTxsSpentUTXOs[inputHashString] = make(UTXOs)
+		}
+		inputTxsSpentUTXOs[inputHashString][txInput.OutIndex] = inputTxUTXOs[txInput.OutIndex]
+
 		delete(inputTxUTXOs, txInput.OutIndex)
-		updatedUTXOs[hex.EncodeToString(inputTxHash)] = inputTxUTXOs
+		inputTxsUpdatedUTXOs[inputHashString] = inputTxUTXOs
 	}
 
 	txUTXOs := make(UTXOs)
@@ -113,14 +124,83 @@ func (tx Transaction) IndexUTXOs(chainstateDB *leveldb.DB) error {
 	if txInputTotal < txOutputTotal {
 		return errors.New("invalid transaction, total output value is larger than total input value")
 	}
-	updatedUTXOs[hex.EncodeToString(tx.Hash())] = txUTXOs
+	inputTxsUpdatedUTXOs[hex.EncodeToString(tx.Hash())] = txUTXOs
 
-	for updatedTXHashString, utxos := range updatedUTXOs {
-		updatedTXHash, err := hex.DecodeString(updatedTXHashString)
+	for inputTxHashString := range inputTxsUpdatedUTXOs {
+		inputTxHash, err := hex.DecodeString(inputTxHashString)
+		inputTxUpdatedUTXOs := inputTxsUpdatedUTXOs[inputTxHashString]
+		inputTxSpentUTXOs, spentUTXOFromInputTx := inputTxsSpentUTXOs[inputTxHashString]
+
 		if err != nil {
 			return err
 		}
-		err = chainstateDB.Put(updatedTXHash, utxos.Serialize(), nil)
+		err = chainstateDB.Put(inputTxHash, inputTxUpdatedUTXOs.Serialize(), nil) //store updated utxos
+		if err != nil {
+			return err
+		}
+
+		if spentUTXOFromInputTx {
+			inputTxRevUTXOsKey := bytes.Join([][]byte{
+				[]byte("rev:"),
+				tx.Hash(),
+				[]byte(":"),
+				inputTxHash,
+			}, nil)
+
+			//store the UTXOs that were spent to allow for reversing the transaction index
+			err = chainstateDB.Put(inputTxRevUTXOsKey, inputTxSpentUTXOs.Serialize(), nil)
+			if err != nil {
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (tx Transaction) RevertUTXOIndex(chainstateDB *leveldb.DB) error {
+	err := chainstateDB.Delete(tx.Hash(), nil) //deletes UTXOs of the current transaction
+	if err != nil {
+		return err
+	}
+
+	for _, txInput := range tx.Vin {
+		inputTxHash := txInput.Txid
+		inputTxUTXObytes, err := chainstateDB.Get(inputTxHash, nil)
+		if err != nil {
+			return err
+		}
+		inputTxUTXOs := DeserializeUTXOs(inputTxUTXObytes)
+
+		inputTxRevUTXOsKey := bytes.Join([][]byte{
+			[]byte("rev:"),
+			tx.Hash(),
+			[]byte(":"),
+			inputTxHash,
+		}, nil)
+
+		inputTxRevUTXOsbytes, err := chainstateDB.Get(inputTxRevUTXOsKey, nil)
+		if err == leveldb.ErrNotFound { //Nothing to reverse for this transaction input
+			continue
+		}
+		if err != nil {
+			return err
+		}
+
+		//UTXOs that were spent in the current transaction (reverse index)
+		inputTxRevUTXOs := DeserializeUTXOs(inputTxRevUTXOsbytes)
+
+		for outIdx, utxo := range inputTxRevUTXOs {
+			inputTxUTXOs[outIdx] = utxo //add utxos back
+		}
+
+		err = chainstateDB.Put(inputTxHash, inputTxUTXOs.Serialize(), nil) //store updated UTXOs
+		if err != nil {
+			return err
+		}
+
+		err = chainstateDB.Delete(inputTxRevUTXOsKey, nil) //delete reverse index for this input transaction
 		if err != nil {
 			return err
 		}
