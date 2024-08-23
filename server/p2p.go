@@ -98,7 +98,7 @@ func (server *Server) ReceiveInv(requestPeer *peer, payload objectEntries) {
 	}
 
 	requestPeer.SendObjects(GET_DATA, objectEntries{
-		txEntries: unkownTxHashes,
+		txEntries:    unkownTxHashes,
 		blockEntries: unknownBlockHashes,
 	})
 }
@@ -131,7 +131,14 @@ func (server *Server) ReceiveData(payload objectEntries) {
 
 func (server *Server) ReceiveGetData(requestPeer *peer, payload objectEntries) {
 	data := objectEntries{}
-	//TODO: Receive TXs
+
+	for _, txHash := range payload.txEntries {
+		tx := server.memoryPool.GetTx(txHash)
+		if tx == nil {
+			//TODO: Error handling in case tx isn't in memory pool anymore
+		}
+		data.txEntries = append(data.txEntries, tx.Serialize())
+	}
 
 	for _, blockHash := range payload.blockEntries {
 		block := server.bc.GetBlock(blockHash)
