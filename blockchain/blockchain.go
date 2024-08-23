@@ -2,7 +2,6 @@ package blockchain
 
 import (
 	"bytes"
-	"encoding/hex"
 	"fmt"
 	"log"
 	"slices"
@@ -19,6 +18,8 @@ type Blockchain struct {
 
 func (bc *Blockchain) AddBlock(newBlock *Block) error {
 	blockHash := newBlock.GetBlockHeaderHash()
+	//fmt.Printf("Adding block with hash:%s\n", hex.EncodeToString(blockHash))
+
 	if bc.Height() != newBlock.Header.Height-1 {
 		return errors.New("new block's height isn't current blockchain height plus 1")
 	}
@@ -54,7 +55,7 @@ func (bc *Blockchain) AddBlock(newBlock *Block) error {
 }
 
 func (bc *Blockchain) RemoveBlock(blockHash []byte) error {
-	fmt.Printf("Removing block with hash:%s\n", hex.EncodeToString(blockHash))
+	//fmt.Printf("Removing block with hash:%s\n", hex.EncodeToString(blockHash))
 	if !bytes.Equal(blockHash, bc.LastBlockHash()) {
 		return errors.New("can only remove last block")
 	}
@@ -100,7 +101,8 @@ func NewBlockchain(miningChan chan struct{}, genesisAddress string) *Blockchain 
 
 	_, err = blocksDB.Get([]byte("l"), nil)
 
-	if err == leveldb.ErrNotFound { //if the l key (last block hash) is not found, we are creating the db for the first time => create genesis block
+	if err == leveldb.ErrNotFound {
+		//if the l key (last block hash) is not found, we are creating the db for the first time => set "l" as empty []byte
 		fmt.Println("Blockchain not found. Generating genesis block...")
 		cbtx := transactions.NewCoinbaseTX(genesisAddress)
 		genesis := NewGenesisBlock(miningChan, cbtx)
@@ -119,20 +121,8 @@ func NewBlockchain(miningChan chan struct{}, genesisAddress string) *Blockchain 
 		bc.ReindexUTXOs()
 	} else if err != nil {
 		log.Panic(err)
-	} else { //else, simply get the last block hash from the db
+	} else {
 		fmt.Println("Blockchain found. Retrieving...")
-		lastBlockHash, err = blocksDB.Get([]byte("l"), nil)
-		if err != nil {
-			log.Panic(err)
-		}
-		blockBytes, err := blocksDB.Get(lastBlockHash, nil)
-		if err != nil {
-			log.Panic(err)
-		}
-		lastBlock := DeserializeBlock(blockBytes)
-
-		fmt.Printf("Retrieved blockchain with height:%d\n", lastBlock.Header.Height)
-
 		bc = &Blockchain{blocksDB, chainstateDB}
 	}
 
@@ -190,6 +180,11 @@ func (bc *Blockchain) Height() int {
 	if err != nil {
 		log.Panic(err)
 	}
+
+	if bytes.Equal(lastBlockHash,[]byte{}) { //no genesis block
+		return -1;
+	}
+
 	blockBytes, err := bc.BlocksDB.Get(lastBlockHash, nil)
 	if err != nil {
 		log.Panic(err)

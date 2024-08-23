@@ -114,19 +114,20 @@ func (server *Server) parseBlocks(serializedBlocks [][]byte) (*blockchain.Block,
 	firstBlockBytes := serializedBlocks[0]
 	firstRemoteBlock := blockchain.DeserializeBlock(firstBlockBytes)
 
-	fmt.Printf("First remote block prev hash:%s\n", hex.EncodeToString(firstRemoteBlock.Header.PrevBlockHeaderHash))
-
-	//TODO: no common blocks, but firstRemoteBlock is genesis block
-
 	highestKnownBlock = server.bc.GetBlock(firstRemoteBlock.Header.PrevBlockHeaderHash)
-	fmt.Printf("highestKnownBlock hash:%s\n", hex.EncodeToString(highestKnownBlock.GetBlockHeaderHash()))
-
-	if highestKnownBlock == nil { //first remote block's parent isn't known
-		return nil, nil, &blockchain_errors.ErrOrphanBlock{}
-	}
 	highestKnownBlockIdx := -1
+	var prevHash []byte
+	if highestKnownBlock == nil{
+		prevHash = []byte{}
+		if !bytes.Equal(firstRemoteBlock.Header.PrevBlockHeaderHash,prevHash){
+			///first remote block's parent isn't known and it isn't a genesis block
+			return nil, nil, &blockchain_errors.ErrOrphanBlock{}
+		}		
+	}else{
+		prevHash = highestKnownBlock.GetBlockHeaderHash()
 
-	prevHash := highestKnownBlock.GetBlockHeaderHash()
+	}
+
 	for blockIdx, blockBytes := range serializedBlocks {
 		remoteBlock := blockchain.DeserializeBlock(blockBytes)
 		if !bytes.Equal(prevHash, remoteBlock.Header.PrevBlockHeaderHash) {
@@ -183,6 +184,7 @@ func (server *Server) RemoveBlockFromBc(blockHash []byte) error {
 
 func (server *Server) ReceiveBlocks(requestPeer *peer, serializedBlocks [][]byte) [][]byte {
 	highestKnownBlock, newBlocks, err := server.parseBlocks(serializedBlocks)
+
 	if errors.Is(err, &blockchain_errors.ErrOrphanBlock{}) {
 		server.SendGetBlocks(requestPeer)
 		return nil
@@ -191,9 +193,18 @@ func (server *Server) ReceiveBlocks(requestPeer *peer, serializedBlocks [][]byte
 		return nil
 	}
 
-	fmt.Printf("Height of common block:%d\n", highestKnownBlock.Header.Height)
+	var newChainHeight int
+	var highestKnownBlockHash []byte
 
-	newChainHeight := highestKnownBlock.Header.Height + len(newBlocks)
+	if highestKnownBlock!=nil{ //if any block in the receiving blockchain is known
+		newChainHeight  = highestKnownBlock.Header.Height + len(newBlocks)
+		highestKnownBlockHash = highestKnownBlock.GetBlockHeaderHash()
+	}else{
+		//receiving blockchain including genesis block
+		newChainHeight = len(newBlocks) - 1
+		highestKnownBlockHash = []byte{}
+	}
+
 	if newChainHeight <= server.bc.Height() {
 		return nil
 	}
@@ -201,8 +212,8 @@ func (server *Server) ReceiveBlocks(requestPeer *peer, serializedBlocks [][]byte
 	server.mu.Lock()
 	defer server.mu.Unlock()
 
-	highestKnownBlockHash := highestKnownBlock.GetBlockHeaderHash()
-	if server.bc.GetBlock(highestKnownBlockHash) == nil { //highest known block is no longer in blockchain
+	if server.bc.GetBlock(highestKnownBlockHash) == nil && !bytes.Equal(highestKnownBlockHash,[]byte{}){ 
+		//no block in the receiving blockchain is known and receiving bc doesn't include genesis block
 		return nil
 	}
 
@@ -261,7 +272,7 @@ func (server *Server) ReceiveGetData(requestPeer *peer, payload objectEntries) {
 	for _, txHash := range payload.txEntries {
 		tx := server.memoryPool.GetTx(txHash)
 		if tx == nil {
-			//TODO: Error handling in case tx isn't in memory pool anymore
+			continue
 		}
 		data.txEntries = append(data.txEntries, tx.Serialize())
 	}
@@ -269,7 +280,7 @@ func (server *Server) ReceiveGetData(requestPeer *peer, payload objectEntries) {
 	for _, blockHash := range payload.blockEntries {
 		block := server.bc.GetBlock(blockHash)
 		if block == nil {
-			//TODO: Error handling in case block isn't in local blockchain anymore
+			continue
 		}
 		data.blockEntries = append(data.blockEntries, block.Serialize())
 	}
