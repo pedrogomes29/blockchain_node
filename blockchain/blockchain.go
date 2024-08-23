@@ -181,8 +181,8 @@ func (bc *Blockchain) Height() int {
 		log.Panic(err)
 	}
 
-	if bytes.Equal(lastBlockHash,[]byte{}) { //no genesis block
-		return -1;
+	if bytes.Equal(lastBlockHash, []byte{}) { //no genesis block
+		return -1
 	}
 
 	blockBytes, err := bc.BlocksDB.Get(lastBlockHash, nil)
