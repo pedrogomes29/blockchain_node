@@ -60,7 +60,7 @@ func NewGenesisBlock(miningChan chan struct{}, coinbase *transactions.Transactio
 	return genesisblock
 }
 
-func (b *Block) GetBlockHeaderHash() [32]byte {
+func (b *Block) GetBlockHeaderHash() []byte {
 	data := bytes.Join(
 		[][]byte{
 			b.Header.PrevBlockHeaderHash,
@@ -69,7 +69,8 @@ func (b *Block) GetBlockHeaderHash() [32]byte {
 		utils.Uint32ToHex(b.Header.Nonce),
 	)
 
-	return sha256.Sum256(data)
+	blockHeaderHashArray := sha256.Sum256(data)
+	return blockHeaderHashArray[:]
 }
 
 func (b *Block) POW(miningChan chan struct{}) bool {
@@ -94,7 +95,7 @@ func (b *Block) ValidateNonce() bool {
 	var hashInt big.Int
 
 	hash := b.GetBlockHeaderHash()
-	hashInt.SetBytes(hash[:])
+	hashInt.SetBytes(hash)
 
 	isValid := hashInt.Cmp(Target) == -1
 

@@ -31,12 +31,12 @@ func (bc *Blockchain) AddBlock(newBlock *Block) error {
 		return errors.New("nonce isn't valid")
 	}
 
-	err := bc.BlocksDB.Put(blockHash[:], newBlock.Serialize(), nil)
+	err := bc.BlocksDB.Put(blockHash, newBlock.Serialize(), nil)
 	if err != nil {
 		return err
 	}
 
-	err = bc.BlocksDB.Put([]byte("l"), blockHash[:], nil)
+	err = bc.BlocksDB.Put([]byte("l"), blockHash, nil)
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func NewBlockchain(miningChan chan struct{}, genesisAddress string) *Blockchain 
 		cbtx := transactions.NewCoinbaseTX(genesisAddress)
 		genesis := NewGenesisBlock(miningChan, cbtx)
 		genesisHash := genesis.GetBlockHeaderHash()
-		lastBlockHash = genesisHash[:]
+		lastBlockHash = genesisHash
 
 		err = blocksDB.Put(lastBlockHash, genesis.Serialize(), nil)
 		if err != nil {

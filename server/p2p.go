@@ -1,7 +1,9 @@
 package server
 
 import (
+	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -9,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/pedrogomes29/blockchain_node/blockchain"
+	"github.com/pedrogomes29/blockchain_node/blockchain_errors"
 )
 
 const BLOCKCHAIN_PORT string = "8333"
@@ -71,7 +74,7 @@ func (server *Server) ReceiveGetBlocks(requestPeer *peer, payload getBlocksPaylo
 
 	for _, block := range server.bc.GetBlocksStartingAtHash(highestCommonBlockHash) {
 		blockHash := block.GetBlockHeaderHash()
-		unsharedHashes = append(unsharedHashes, blockHash[:])
+		unsharedHashes = append(unsharedHashes, blockHash)
 	}
 
 	requestPeer.SendObjects(INV, objectEntries{
@@ -110,35 +113,55 @@ func getReceivedBCHeight(serializedBlocks [][]byte) int{
 	return lastBlock.Header.Height
 }
 
-func (server *Server) ReceiveData(payload objectEntries) {
-	//TODO: Receive TXs
-
-	serializedBlocks := payload.blockEntries
-	if getReceivedBCHeight(serializedBlocks) <= server.bc.Height() {
-		return
+func (server *Server) parseBlocks(serializedBlocks [][]byte) ([]*blockchain.Block,error){
+	lastBlockHeaderHash := server.bc.LastBlockHash()
+	var blocks []*blockchain.Block
+	for _, blockBytes := range serializedBlocks {
+		block := blockchain.DeserializeBlock(blockBytes)
+		if(!bytes.Equal(lastBlockHeaderHash,block.Header.PrevBlockHeaderHash)){
+			return nil, &blockchain_errors.ErrOrphanBlock{}
+		}
+		blocks = append(blocks, block)
+		lastBlockHeaderHash = block.GetBlockHeaderHash()
 	}
+	return blocks, nil
+}
 
-
+func (server *Server) ReceiveBlocks(requestPeer *peer, serializedBlocks [][]byte) [][]byte{
+	if getReceivedBCHeight(serializedBlocks) <= server.bc.Height() {
+		return nil
+	}
+	blocks, err := server.parseBlocks(serializedBlocks)
+	if errors.Is(err, &blockchain_errors.ErrOrphanBlock{}) {
+		server.SendGetBlocks(requestPeer)
+		return nil
+	}
 
 	server.mu.Lock()
 	defer server.mu.Unlock()
 	var newBlocksHashes [][]byte
 
-	for _, blockBytes := range payload.blockEntries {
-		block := blockchain.DeserializeBlock(blockBytes)
+	for _, block := range blocks {
 		err := server.bc.AddBlock(block)
 		if err != nil {
 			//TODO: better error handling
-			return
+			return nil
 		}
 
 		newBlockHash := block.GetBlockHeaderHash()
-		newBlocksHashes = append(newBlocksHashes, newBlockHash[:])
+		newBlocksHashes = append(newBlocksHashes, newBlockHash)
 	}
+
+	server.miningChan <- struct{}{}
+	return newBlocksHashes
+}
+
+func (server *Server) ReceiveData(requestPeer *peer, payload objectEntries) {
+	//TODO: Receive TXs
+	newBlocksHashes := server.ReceiveBlocks(requestPeer, payload.blockEntries)
 	server.BroadcastObjects(INV, objectEntries{
 		blockEntries: newBlocksHashes,
 	})
-	server.miningChan <- struct{}{}
 }
 
 func (server *Server) ReceiveGetData(requestPeer *peer, payload objectEntries) {
@@ -210,7 +233,7 @@ func (server *Server) HandleTcpCommands() {
 		case GET_DATA:
 			server.ReceiveGetData(cmd.peer, ParseObjects(cmd.args))
 		case DATA:
-			server.ReceiveData(ParseObjects(cmd.args))
+			server.ReceiveData(cmd.peer, ParseObjects(cmd.args))
 		}
 	}
 }

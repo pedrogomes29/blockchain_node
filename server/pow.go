@@ -31,7 +31,7 @@ func (server *Server) POW() {
 		server.AddBlockInProgressToBC()
 		blockInProgressHash := server.blockInProgress.GetBlockHeaderHash()
 		server.BroadcastObjects(INV, objectEntries{
-			blockEntries: [][]byte{blockInProgressHash[:]},
+			blockEntries: [][]byte{blockInProgressHash},
 		})
 	}
 
