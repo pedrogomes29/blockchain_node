@@ -7,10 +7,10 @@ import (
 	"crypto/sha256"
 	"encoding/gob"
 	"encoding/hex"
-	"errors"
 	"log"
 	"math/big"
 
+	"github.com/pedrogomes29/blockchain_node/blockchain_errors"
 	"github.com/pedrogomes29/blockchain_node/utils"
 	"github.com/syndtr/goleveldb/leveldb"
 )
@@ -66,7 +66,51 @@ func (tx Transaction) Hash() []byte {
 	return hash[:]
 }
 
+func (tx Transaction) Verify(chainstateDB *leveldb.DB) error{
+	if tx.IsCoinbase {
+		return nil
+	}
+
+	if !tx.VerifyInputSignatures(chainstateDB) {
+		return &blockchain_errors.ErrInvalidTxInputSignature{}
+	}
+
+	txInputTotal := 0
+
+	for _, txInput := range tx.Vin {
+		inputTxHash := txInput.Txid
+		inputTxUTXObytes, err := chainstateDB.Get(append([]byte(UTXO_PREFIX), inputTxHash...), nil)
+		if err != nil {
+			return err
+		}
+		inputTxUTXOs := DeserializeUTXOs(inputTxUTXObytes)
+		prevUTXO, isUTXO := inputTxUTXOs[txInput.OutIndex]
+		if !isUTXO { //if spent UTXO
+			return &blockchain_errors.ErrInvalidInputUTXO{}
+		}
+
+		txInputTotal += prevUTXO.Value
+	}
+
+	txOutputTotal := 0
+	for _, txoutput := range tx.Vout {
+		txOutputTotal += txoutput.Value
+	}
+
+	if txInputTotal < txOutputTotal {
+		return &blockchain_errors.ErrOutputValLGTInputVal{}
+	}
+
+	return nil
+}
+
+
 func (tx Transaction) IndexUTXOs(chainstateDB *leveldb.DB) error {
+	err := tx.Verify(chainstateDB)
+	if err!=nil{
+		return err
+	}
+
 	if tx.IsCoinbase {
 		txUTXOs := make(UTXOs)
 		for i, txoutput := range tx.Vout {
@@ -77,10 +121,6 @@ func (tx Transaction) IndexUTXOs(chainstateDB *leveldb.DB) error {
 			return err
 		}
 		return nil
-	}
-
-	if !tx.VerifyInputSignatures(chainstateDB) {
-		return errors.New("Transaction inputs have at least one invalid signature")
 	}
 
 	txInputTotal := 0
@@ -98,10 +138,7 @@ func (tx Transaction) IndexUTXOs(chainstateDB *leveldb.DB) error {
 			return err
 		}
 		inputTxUTXOs := DeserializeUTXOs(inputTxUTXObytes)
-		prevUTXO, isUTXO := inputTxUTXOs[txInput.OutIndex]
-		if !isUTXO { //if spent UTXO
-			return errors.New("invalid transaction, spending from already used transaction output")
-		}
+		prevUTXO := inputTxUTXOs[txInput.OutIndex]
 
 		txInputTotal += prevUTXO.Value
 
@@ -123,9 +160,6 @@ func (tx Transaction) IndexUTXOs(chainstateDB *leveldb.DB) error {
 		txOutputTotal += txoutput.Value
 	}
 
-	if txInputTotal < txOutputTotal {
-		return errors.New("invalid transaction, total output value is larger than total input value")
-	}
 	inputTxsUpdatedUTXOs[hex.EncodeToString(tx.Hash())] = txUTXOs
 
 	for inputTxHashString := range inputTxsUpdatedUTXOs {

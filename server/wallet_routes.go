@@ -21,10 +21,9 @@ func (server *Server) AddTransactionHandler(c *gin.Context) {
 
 	if err := server.AddTxToMemPool(tx); err != nil {
 		if errors.Is(err, &blockchain_errors.ErrInvalidTxInputSignature{}) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Transaction inputs have at least one invalid signature"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "An unexpected error ocurred"})
 		return
 	}
 

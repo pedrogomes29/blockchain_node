@@ -177,7 +177,9 @@ func (server *Server) RemoveBlockFromBc(blockHash []byte) error {
 		return err
 	}
 	for _, tx := range removedBlock.Transactions {
-		server.memoryPool.PushFrontTx(tx)
+		if err = tx.Verify(server.bc.ChainstateDB); err!=nil{
+			server.memoryPool.PushFrontTx(tx)
+		}
 	}
 	return nil
 }

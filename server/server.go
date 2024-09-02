@@ -5,7 +5,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pedrogomes29/blockchain_node/blockchain"
-	"github.com/pedrogomes29/blockchain_node/blockchain_errors"
 	"github.com/pedrogomes29/blockchain_node/memory_pool"
 	"github.com/pedrogomes29/blockchain_node/transactions"
 )
@@ -39,8 +38,8 @@ func NewServer(minerAddress string, seedAddrs []string) *Server {
 }
 
 func (server *Server) AddTxToMemPool(tx transactions.Transaction) error {
-	if !tx.VerifyInputSignatures(server.bc.ChainstateDB) {
-		return &blockchain_errors.ErrInvalidTxInputSignature{}
+	if err := tx.Verify(server.bc.ChainstateDB); err!=nil {
+		return err
 	}
 
 	server.memoryPool.PushBackTx(&tx)
