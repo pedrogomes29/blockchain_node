@@ -260,7 +260,10 @@ func (server *Server) ReceiveTxs(requestPeer *peer, serializedTxs [][]byte) [][]
 		if server.memoryPool.GetTxWithLock(txHash) != nil {
 			continue
 		}
-		server.memoryPool.PushBackTxWithLock(tx)
+		err := server.memoryPool.PushBackTxWithLock(tx)
+		if err != nil {
+			continue
+		}
 		newTxHashes = append(newTxHashes, txHash)
 	}
 	return newTxHashes
