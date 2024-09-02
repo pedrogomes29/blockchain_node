@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/pedrogomes29/blockchain_node/memory_pool"
 	"github.com/pedrogomes29/blockchain_node/merkle_tree"
 	"github.com/pedrogomes29/blockchain_node/transactions"
 	"github.com/pedrogomes29/blockchain_node/utils"
@@ -145,4 +146,16 @@ func DeserializeBlock(d []byte) *Block {
 	}
 
 	return &block
+}
+
+func (b *Block) FillWithTxs(mp *memory_pool.MemoryPool) {
+	mp.GetRWMutex().RLock()
+	defer mp.GetRWMutex().RUnlock()
+	for txQueueElement := mp.GetTxQueue().Front(); txQueueElement != nil; txQueueElement = txQueueElement.Next() {
+		tx := txQueueElement.Value.(*transactions.Transaction)
+		txFitsInBlock := b.AddTransaction(tx)
+		if !txFitsInBlock {
+			break
+		}
+	}
 }

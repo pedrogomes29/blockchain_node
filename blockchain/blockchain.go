@@ -6,6 +6,7 @@ import (
 	"log"
 	"slices"
 
+	"github.com/pedrogomes29/blockchain_node/memory_pool"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 )
@@ -15,24 +16,57 @@ type Blockchain struct {
 	ChainstateDB *leveldb.DB
 }
 
+func (bc *Blockchain) VerifyBlock(block *Block) error {
+	if bc.Height() != block.Header.Height-1 {
+		return errors.New("new block's height isn't current blockchain height plus 1")
+	}
+	if !bytes.Equal(block.Header.PrevBlockHeaderHash, bc.LastBlockHash()) {
+		return errors.New("received block isn't sucessor of blockchain's last block")
+	}
+	if !bytes.Equal(block.MerkleRootHash(), block.Header.MerkleRootHash) {
+		return errors.New("merkle root doesn't match with transactions")
+	}
+	if !block.ValidateNonce() {
+		return errors.New("nonce isn't valid")
+	}
+	if err := bc.VerifyBlockTxs(block); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (bc *Blockchain) VerifyBlockTxs(block *Block) error {
+	memoryPool := memory_pool.NewMemoryPool()
+
+	for _, tx := range block.Transactions {
+		//returns an error if signature is invalid or the UTXOs are invalid according to the blockchain state
+		//(excluding other transactions in the new block)
+		err := tx.Verify(bc.ChainstateDB)
+		if err != nil {
+			return err
+		}
+
+		//returns an error if this tx's UTXOs are already spent by some other tx in the new block
+		err = memoryPool.PushBackTxWithLock(tx)
+		if err != nil {
+			return err
+		}
+
+	}
+	return nil
+}
+
 func (bc *Blockchain) AddBlock(newBlock *Block) error {
 	blockHash := newBlock.GetBlockHeaderHash()
 	//fmt.Printf("Adding block with hash:%s\n", hex.EncodeToString(blockHash))
 
-	if bc.Height() != newBlock.Header.Height-1 {
-		return errors.New("new block's height isn't current blockchain height plus 1")
-	}
-	if !bytes.Equal(newBlock.Header.PrevBlockHeaderHash, bc.LastBlockHash()) {
-		return errors.New("received block isn't sucessor of blockchain's last block")
-	}
-	if !bytes.Equal(newBlock.MerkleRootHash(), newBlock.Header.MerkleRootHash) {
-		return errors.New("merkle root doesn't match with transactions")
-	}
-	if !newBlock.ValidateNonce() {
-		return errors.New("nonce isn't valid")
+	err := bc.VerifyBlock(newBlock)
+	if err != nil {
+		return err
 	}
 
-	err := bc.BlocksDB.Put(blockHash, newBlock.Serialize(), nil)
+	err = bc.BlocksDB.Put(blockHash, newBlock.Serialize(), nil)
 	if err != nil {
 		return err
 	}
@@ -43,8 +77,7 @@ func (bc *Blockchain) AddBlock(newBlock *Block) error {
 	}
 
 	for _, tx := range newBlock.Transactions {
-		err := tx.IndexUTXOs(bc.ChainstateDB) //index UTXOs verifies that transactions are valid
-		//TODO: undo indexing if there is an error. Alternatively, verify all transactions and only then index?
+		err = tx.IndexUTXOs(bc.ChainstateDB)
 		if err != nil {
 			return err
 		}

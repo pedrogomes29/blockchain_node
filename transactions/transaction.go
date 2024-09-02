@@ -66,7 +66,7 @@ func (tx Transaction) Hash() []byte {
 	return hash[:]
 }
 
-func (tx Transaction) Verify(chainstateDB *leveldb.DB) error{
+func (tx Transaction) Verify(chainstateDB *leveldb.DB) error {
 	if tx.IsCoinbase {
 		return nil
 	}
@@ -85,7 +85,7 @@ func (tx Transaction) Verify(chainstateDB *leveldb.DB) error{
 		}
 		inputTxUTXOs := DeserializeUTXOs(inputTxUTXObytes)
 		prevUTXO, isUTXO := inputTxUTXOs[txInput.OutIndex]
-		if !isUTXO { //if spent UTXO
+		if !isUTXO {
 			return &blockchain_errors.ErrInvalidInputUTXO{}
 		}
 
@@ -104,10 +104,9 @@ func (tx Transaction) Verify(chainstateDB *leveldb.DB) error{
 	return nil
 }
 
-
 func (tx Transaction) IndexUTXOs(chainstateDB *leveldb.DB) error {
 	err := tx.Verify(chainstateDB)
-	if err!=nil{
+	if err != nil {
 		return err
 	}
 

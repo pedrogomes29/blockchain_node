@@ -87,7 +87,7 @@ func (server *Server) ReceiveInv(requestPeer *peer, payload objectEntries) {
 	var unknownBlockHashes [][]byte
 	var unkownTxHashes [][]byte
 	for _, txHash := range payload.txEntries {
-		tx := server.memoryPool.GetTx(txHash)
+		tx := server.memoryPool.GetTxWithLock(txHash)
 		if tx != nil { //if tx is already known
 			continue
 		}
@@ -165,7 +165,9 @@ func (server *Server) AddBlockToBc(newBlock *blockchain.Block) error {
 	}
 
 	for _, tx := range newBlock.Transactions {
-		server.memoryPool.DeleteTx(tx.Hash())
+		//pushes transaction to the front of the mem pool queue (replaces if it's already in the mempool)
+		server.memoryPool.PushFrontTxWithLock(tx)
+		server.memoryPool.DeleteTxWithLock(tx.Hash())
 	}
 	return nil
 }
@@ -177,8 +179,9 @@ func (server *Server) RemoveBlockFromBc(blockHash []byte) error {
 		return err
 	}
 	for _, tx := range removedBlock.Transactions {
-		if err = tx.Verify(server.bc.ChainstateDB); err!=nil{
-			server.memoryPool.PushFrontTx(tx)
+		if err = tx.Verify(server.bc.ChainstateDB); err != nil {
+			server.memoryPool.DeleteTxsSpendingFromTxUTXOsWithLock(tx)
+			server.memoryPool.PushFrontTxWithLock(tx)
 		}
 	}
 	return nil
@@ -223,6 +226,8 @@ func (server *Server) ReceiveBlocks(requestPeer *peer, serializedBlocks [][]byte
 	for !bytes.Equal(lastBlockHash, highestKnownBlockHash) {
 		err := server.RemoveBlockFromBc(lastBlockHash)
 		if err != nil {
+			fmt.Printf("Error removing block: %s\n", hex.EncodeToString(lastBlockHash))
+			fmt.Println(err.Error())
 			//TODO: better error handling
 			return nil
 		}
@@ -234,6 +239,8 @@ func (server *Server) ReceiveBlocks(requestPeer *peer, serializedBlocks [][]byte
 		err := server.AddBlockToBc(block)
 		if err != nil {
 			//TODO: better error handling
+			fmt.Println("Error adding block")
+			fmt.Println(err.Error())
 			return nil
 		}
 
@@ -250,10 +257,10 @@ func (server *Server) ReceiveTxs(requestPeer *peer, serializedTxs [][]byte) [][]
 	for _, txBytes := range serializedTxs {
 		tx := transactions.Deserialize(txBytes)
 		txHash := tx.Hash()
-		if server.memoryPool.GetTx(txHash) != nil {
+		if server.memoryPool.GetTxWithLock(txHash) != nil {
 			continue
 		}
-		server.memoryPool.PushBackTx(tx)
+		server.memoryPool.PushBackTxWithLock(tx)
 		newTxHashes = append(newTxHashes, txHash)
 	}
 	return newTxHashes
@@ -278,7 +285,7 @@ func (server *Server) ReceiveGetData(requestPeer *peer, payload objectEntries) {
 	data := objectEntries{}
 
 	for _, txHash := range payload.txEntries {
-		tx := server.memoryPool.GetTx(txHash)
+		tx := server.memoryPool.GetTxWithLock(txHash)
 		if tx == nil {
 			continue
 		}

@@ -38,12 +38,16 @@ func NewServer(minerAddress string, seedAddrs []string) *Server {
 }
 
 func (server *Server) AddTxToMemPool(tx transactions.Transaction) error {
-	if err := tx.Verify(server.bc.ChainstateDB); err!=nil {
+	if err := tx.Verify(server.bc.ChainstateDB); err != nil {
 		return err
 	}
 
-	server.memoryPool.PushBackTx(&tx)
-	_ = server.blockInProgress.AddTransaction(&tx)
+	err := server.memoryPool.PushBackTxWithLock(&tx)
+	if err != nil {
+		return err
+	}
+
+	server.blockInProgress.AddTransaction(&tx)
 
 	server.BroadcastObjects(INV, objectEntries{
 		txEntries: [][]byte{tx.Hash()},

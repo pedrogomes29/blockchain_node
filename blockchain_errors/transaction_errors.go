@@ -12,7 +12,6 @@ func (m *ErrInvalidTxInputSignature) Error() string {
 	return "transaction inputs have at least one invalid signature"
 }
 
-
 type ErrInvalidInputUTXO struct{}
 
 func (m *ErrInvalidInputUTXO) Error() string {
@@ -20,6 +19,7 @@ func (m *ErrInvalidInputUTXO) Error() string {
 }
 
 type ErrOutputValLGTInputVal struct{}
+
 func (m *ErrOutputValLGTInputVal) Error() string {
 	return "invalid transaction, total output value is larger than total input value"
 }
